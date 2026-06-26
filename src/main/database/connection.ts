@@ -32,6 +32,30 @@ export function initDatabase(): Promise<sqlite3.Database> {
     }
 
     const dbPath = getDatabasePath();
+    
+    // Attempt automatic database migration from old folder if it exists and new database doesn't
+    if (!fs.existsSync(dbPath)) {
+      try {
+        let userDataPath: string;
+        try {
+          userDataPath = app.getPath('userData');
+        } catch (e) {
+          userDataPath = path.resolve(__dirname, '../../');
+        }
+        
+        const parentDir = path.dirname(userDataPath);
+        const oldDbPath = path.join(parentDir, 'stackorbitai-bulk-writer-pro', 'database', 'stackorbit_writer.db');
+        
+        if (fs.existsSync(oldDbPath)) {
+          console.log(`[Database] Migrating legacy database from: ${oldDbPath} to: ${dbPath}`);
+          fs.copyFileSync(oldDbPath, dbPath);
+          console.log('[Database] Legacy database migration completed successfully!');
+        }
+      } catch (migrateErr: any) {
+        console.error('[Database] Automatic legacy database migration failed:', migrateErr.message);
+      }
+    }
+
     console.log(`[Database] Initializing SQLite database at: ${dbPath}`);
 
     // Set verbose mode to help with debugging
