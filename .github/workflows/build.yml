@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  GYP_MSVS_VERSION: 2022
+
 jobs:
   release:
     name: Build & Package Desktop Client
