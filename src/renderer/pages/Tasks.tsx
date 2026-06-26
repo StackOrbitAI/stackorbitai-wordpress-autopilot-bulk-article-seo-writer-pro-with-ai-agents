@@ -450,6 +450,10 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       setScheduleFrequency('once');
     }
 
+    const targetSiteId = task.website_id.toString();
+    setWebsiteId(targetSiteId);
+    fetchCategories(targetSiteId);
+
     setStep(1);
     setFormError('');
     setOpenAdd(true);
@@ -625,9 +629,20 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
             </div>
             
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex justify-between">
+              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex justify-between items-center">
                 <span>Category Target(s) (Select one or more)</span>
-                {fetchingCategories && <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />}
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    type="button"
+                    onClick={() => websiteId && fetchCategories(websiteId)}
+                    disabled={fetchingCategories}
+                    className="text-zinc-500 hover:text-indigo-400 transition-colors p-0.5"
+                    title="Refresh categories"
+                  >
+                    <RotateCcw className={`h-3 w-3 ${fetchingCategories ? 'animate-spin text-indigo-400' : ''}`} />
+                  </button>
+                  {fetchingCategories && <Loader2 className="h-3 w-3 animate-spin text-indigo-400" />}
+                </div>
               </label>
 
               {/* Filter Categories Search Input */}

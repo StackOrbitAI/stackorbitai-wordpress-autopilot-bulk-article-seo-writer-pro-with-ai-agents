@@ -66,7 +66,7 @@ export async function testWordPressConnection(config: WordPressSiteConfig): Prom
   try {
     const response = await axios.get(`${baseUrl}/wp-json/wp/v2/users/me`, {
       headers: getHeaders(authHeader),
-      timeout: 15000
+      timeout: 30000
     });
     
     // If successfully returned details, authentication is valid
@@ -316,7 +316,7 @@ export async function getWordPressCategories(
     const response = await axios.get(`${baseUrl}/wp-json/wp/v2/categories`, {
       params: { per_page: 100 },
       headers: getHeaders(authHeader),
-      timeout: 15000
+      timeout: 30000
     });
     
     if (Array.isArray(response.data)) {
