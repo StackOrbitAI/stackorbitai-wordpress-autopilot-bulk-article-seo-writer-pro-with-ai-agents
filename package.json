@@ -1,6 +1,6 @@
 {
   "name": "wordpress-autopilot-bulk-article-writer-pro",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "description": "StackOrbitAI Bulk Writer Pro - Enterprise AI Bulk Blog Writer",
   "main": "dist/main/index.js",
   "author": "StackOrbitAI <support@stackorbitai.com>",
@@ -51,6 +51,7 @@
   "build": {
     "appId": "com.stackorbitai.bulk-writer-pro",
     "productName": "StackOrbitAI Bulk Writer Pro",
+    "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },
@@ -58,11 +59,18 @@
       "dist/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
     "asar": true,
     "asarUnpack": [
       "**/node_modules/sqlite3/**/*"
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
       "target": [
         "dmg"
@@ -72,10 +80,12 @@
         "owner": "StackOrbitAI",
         "repo": "wordpress-autopilot-bulk-article-writer-pro",
         "private": false,
-        "publishAutoUpdate": true
+        "publishAutoUpdate": true,
+        "releaseType": "release"
       }
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis"
       ],
@@ -84,7 +94,8 @@
         "owner": "StackOrbitAI",
         "repo": "wordpress-autopilot-bulk-article-writer-pro",
         "private": false,
-        "publishAutoUpdate": true
+        "publishAutoUpdate": true,
+        "releaseType": "release"
       }
     },
     "linux": {
@@ -97,7 +108,8 @@
         "owner": "StackOrbitAI",
         "repo": "wordpress-autopilot-bulk-article-writer-pro",
         "private": false,
-        "publishAutoUpdate": true
+        "publishAutoUpdate": true,
+        "releaseType": "release"
       }
     },
     "nsis": {

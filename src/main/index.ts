@@ -12,7 +12,10 @@ import { startExpressServer, stopExpressServer } from './server';
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
-  const iconPath = path.join(__dirname, '../../build/icon.png');
+  const isDev = process.env.NODE_ENV === 'development';
+  const iconPath = isDev 
+    ? path.join(__dirname, '../../build/icon.png')
+    : path.join(process.resourcesPath, 'icon.png');
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -32,7 +35,6 @@ function createWindow() {
 
 
   // Open DevTools in dev mode
-  const isDev = process.env.NODE_ENV === 'development';
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
