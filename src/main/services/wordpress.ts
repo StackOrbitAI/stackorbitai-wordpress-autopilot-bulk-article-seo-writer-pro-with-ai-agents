@@ -40,6 +40,16 @@ function cleanUrl(url: string): string {
   return cleaned;
 }
 
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+function getHeaders(authHeader: string, extraHeaders: Record<string, string> = {}): Record<string, string> {
+  return {
+    'Authorization': authHeader,
+    'User-Agent': USER_AGENT,
+    ...extraHeaders
+  };
+}
+
 // Generate basic authentication header
 function getAuthHeader(config: WordPressSiteConfig): string {
   const token = Buffer.from(`${config.username}:${config.password}`).toString('base64');
@@ -55,7 +65,7 @@ export async function testWordPressConnection(config: WordPressSiteConfig): Prom
   
   try {
     const response = await axios.get(`${baseUrl}/wp-json/wp/v2/users/me`, {
-      headers: { 'Authorization': authHeader },
+      headers: getHeaders(authHeader),
       timeout: 15000
     });
     
@@ -83,7 +93,7 @@ export async function findOrCreateCategory(
     // 1. Search for existing category
     const searchResponse = await axios.get(`${baseUrl}/wp-json/wp/v2/categories`, {
       params: { slug },
-      headers: { 'Authorization': authHeader }
+      headers: getHeaders(authHeader)
     });
 
     if (searchResponse.data && searchResponse.data.length > 0) {
@@ -95,7 +105,7 @@ export async function findOrCreateCategory(
       name,
       slug
     }, {
-      headers: { 'Authorization': authHeader }
+      headers: getHeaders(authHeader)
     });
 
     return createResponse.data?.id || null;
@@ -125,7 +135,7 @@ export async function findOrCreateTags(
       // 1. Search for existing tag
       const searchResponse = await axios.get(`${baseUrl}/wp-json/wp/v2/tags`, {
         params: { slug },
-        headers: { 'Authorization': authHeader }
+        headers: getHeaders(authHeader)
       });
 
       if (searchResponse.data && searchResponse.data.length > 0) {
@@ -138,7 +148,7 @@ export async function findOrCreateTags(
         name,
         slug
       }, {
-        headers: { 'Authorization': authHeader }
+        headers: getHeaders(authHeader)
       });
 
       if (createResponse.data?.id) {
@@ -172,11 +182,10 @@ export async function uploadWordPressMedia(
 
   try {
     const response = await axios.post(`${baseUrl}/wp-json/wp/v2/media`, fileBuffer, {
-      headers: {
-        'Authorization': authHeader,
+      headers: getHeaders(authHeader, {
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Type': 'image/png'
-      },
+      }),
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
       timeout: 60000
@@ -195,7 +204,7 @@ export async function uploadWordPressMedia(
         alt_text: altText,
         description: altText
       }, {
-        headers: { 'Authorization': authHeader }
+        headers: getHeaders(authHeader)
       });
     } catch (metaErr: any) {
       console.warn('[WordPress] Failed to set image alt text:', metaErr.message);
@@ -278,10 +287,9 @@ export async function createWordPressPost(
 
   try {
     const response = await axios.post(`${baseUrl}/wp-json/wp/v2/posts`, body, {
-      headers: {
-        'Authorization': authHeader,
+      headers: getHeaders(authHeader, {
         'Content-Type': 'application/json'
-      },
+      }),
       timeout: 30000
     });
 
@@ -307,7 +315,7 @@ export async function getWordPressCategories(
   try {
     const response = await axios.get(`${baseUrl}/wp-json/wp/v2/categories`, {
       params: { per_page: 100 },
-      headers: { 'Authorization': authHeader },
+      headers: getHeaders(authHeader),
       timeout: 15000
     });
     
