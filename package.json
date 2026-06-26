@@ -1,6 +1,6 @@
 {
   "name": "wordpress-autopilot-bulk-article-writer-pro",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "StackOrbitAI Bulk Writer Pro - Enterprise AI Bulk Blog Writer",
   "main": "dist/main/index.js",
   "author": "StackOrbitAI <support@stackorbitai.com>",
@@ -95,7 +95,12 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
             "arm64"
           ]
         }
@@ -139,7 +144,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "StackOrbitAI Bulk Writer Pro"
+      "shortcutName": "StackOrbitAI Bulk Writer Pro",
+      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
     }
   },
   "overrides": {

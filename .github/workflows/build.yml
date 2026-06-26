@@ -15,16 +15,24 @@ jobs:
   release:
     name: Build & Package Desktop Client
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
 
     strategy:
       matrix:
-        os: [windows-2022, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-2022
+            container: null
+          - os: macos-latest
+            container: null
+          - os: ubuntu-latest
+            container: node:20-buster
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup Node.js Environment
+        if: matrix.container == null
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,6 +40,23 @@ jobs:
 
       - name: Update NPM to latest (Fixes node-gyp compatibility issues)
         run: npm install -g npm@latest
+
+      - name: Install System Dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            libgtk-3-0 \
+            libnss3 \
+            libasound2 \
+            libxss1 \
+            libxtst6 \
+            libsecret-1-dev \
+            libglib2.0-dev \
+            fakeroot \
+            dpkg \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
 
       - name: Install Python setuptools (Required for SQLite compilation on macOS)
         if: matrix.os == 'macos-latest'
