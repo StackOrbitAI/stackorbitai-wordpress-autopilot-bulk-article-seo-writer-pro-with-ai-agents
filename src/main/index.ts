@@ -415,6 +415,53 @@ ipcMain.handle('db:getDashboardStats', async () => {
      FROM jobs`
   );
 
+  // Fetch active running task details if one exists
+  const runningTask = await dbGet(`SELECT id, name FROM tasks WHERE status = 'running' LIMIT 1`);
+  let activePipeline = null;
+  if (runningTask) {
+    const jobsStats = await dbGet(
+      `SELECT 
+         COUNT(*) as total,
+         SUM(case when status = 'completed' then 1 else 0 end) as completed,
+         SUM(case when status = 'failed' then 1 else 0 end) as failed,
+         SUM(case when status = 'running' then 1 else 0 end) as running,
+         SUM(case when status = 'waiting' then 1 else 0 end) as waiting
+       FROM jobs WHERE task_id = ?`,
+      [runningTask.id]
+    );
+    
+    const nextJob = await dbGet(
+      `SELECT keyword FROM jobs WHERE task_id = ? AND status = 'waiting' ORDER BY id ASC LIMIT 1`,
+      [runningTask.id]
+    );
+    
+    const lastJob = await dbGet(
+      `SELECT keyword, post_url FROM jobs WHERE task_id = ? AND status = 'completed' ORDER BY completed_at DESC LIMIT 1`,
+      [runningTask.id]
+    );
+
+    const total = jobsStats?.total || 0;
+    const completed = jobsStats?.completed || 0;
+    const failed = jobsStats?.failed || 0;
+    const running = jobsStats?.running || 0;
+    const waiting = jobsStats?.waiting || 0;
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const etrMinutes = Math.ceil(((waiting + running) * 25) / 60);
+
+    activePipeline = {
+      taskId: runningTask.id,
+      name: runningTask.name,
+      total,
+      completed,
+      failed,
+      progress,
+      etrMinutes,
+      nextKeyword: nextJob?.keyword || null,
+      lastPublishedKeyword: lastJob?.keyword || null,
+      lastPublishedUrl: lastJob?.post_url || null
+    };
+  }
+
   // Generate charts data: last 7 days of posting activity
   const chartData = await dbAll(
     `SELECT DATE(completed_at) as date, COUNT(*) as count 
@@ -446,6 +493,7 @@ ipcMain.handle('db:getDashboardStats', async () => {
       published: jobCounts?.published || 0,
       waiting: jobCounts?.waiting || 0
     },
+    activePipeline,
     chartData: chartData.reverse(),
     recentActivity: recentLogs
   };

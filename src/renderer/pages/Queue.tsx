@@ -33,6 +33,8 @@ const Queue: React.FC<QueueProps> = ({ selectedTaskId }) => {
   // Running stats counters
   const [totalTokens, setTotalTokens] = useState<number>(0);
   const [totalCost, setTotalCost] = useState<number>(0);
+  
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
@@ -266,49 +268,91 @@ const Queue: React.FC<QueueProps> = ({ selectedTaskId }) => {
 
             {/* Keyword Jobs list */}
             <Card className="border-zinc-800/80">
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-sm">Job Pipeline Details</CardTitle>
                 <CardDescription>Individual article status tracker.</CardDescription>
               </CardHeader>
-              <CardContent className="max-h-96 overflow-y-auto space-y-2.5">
-                {jobs.map((job) => (
-                  <div 
-                    key={job.id} 
-                    className="flex items-center justify-between border border-zinc-850/60 bg-zinc-900/20 px-4 py-3 rounded-xl text-xs hover:border-zinc-800 transition-all"
-                  >
-                    <div className="space-y-1 pr-4 truncate">
-                      <p className="font-bold text-zinc-200 truncate">{job.keyword}</p>
-                      {job.error_message && (
-                        <p className="text-[10px] text-rose-400/90 break-all">{job.error_message}</p>
-                      )}
-                    </div>
+              <CardContent className="space-y-4">
+                {/* Searchable/Filterable Status Tabs */}
+                <div className="flex border-b border-zinc-800/80 overflow-x-auto pb-1 gap-1">
+                  {[
+                    { key: 'all', label: 'All' },
+                    { key: 'waiting', label: 'Pending' },
+                    { key: 'running', label: 'Running' },
+                    { key: 'completed', label: 'Completed' },
+                    { key: 'failed', label: 'Failed' }
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setFilterStatus(tab.key)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
+                        filterStatus === tab.key 
+                          ? 'bg-indigo-600/10 border-indigo-500/30 text-indigo-400 font-bold' 
+                          : 'bg-transparent border-transparent text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
 
-                    <div className="flex items-center space-x-3 shrink-0">
-                      {job.status === 'completed' && (
-                        <a 
-                          href={job.post_url} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 border border-indigo-500/10 hover:border-indigo-500/30 px-2 py-1 rounded bg-indigo-500/5 transition-all text-[11px]"
-                        >
-                          <span>Visit Post</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                      
-                      <Badge 
-                        variant={
-                          job.status === 'completed' ? 'success' :
-                          job.status === 'failed' ? 'destructive' :
-                          job.status === 'running' ? 'warning' : 'outline'
-                        }
-                        className="capitalize"
+                <div className="max-h-96 overflow-y-auto space-y-2.5 pr-1">
+                  {jobs
+                    .filter(job => {
+                      if (filterStatus === 'all') return true;
+                      return job.status === filterStatus;
+                    })
+                    .map((job) => (
+                      <div 
+                        key={job.id} 
+                        className={`flex items-center justify-between border px-4 py-3 rounded-xl text-xs transition-all ${
+                          job.status === 'running' 
+                            ? 'border-amber-500/50 bg-amber-500/5 shadow-md shadow-amber-500/5 animate-pulse' 
+                            : 'border-zinc-850/60 bg-zinc-900/20 hover:border-zinc-800'
+                        }`}
                       >
-                        {job.status}
-                      </Badge>
+                        <div className="space-y-1 pr-4 truncate">
+                          <p className="font-bold text-zinc-200 truncate">{job.keyword}</p>
+                          {job.error_message && (
+                            <p className="text-[10px] text-rose-400/90 break-all">{job.error_message}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center space-x-3 shrink-0">
+                          {job.status === 'completed' && (
+                            <a 
+                              href={job.post_url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 border border-indigo-500/10 hover:border-indigo-500/30 px-2 py-1 rounded bg-indigo-500/5 transition-all text-[11px]"
+                            >
+                              <span>Visit Post</span>
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                          
+                          <Badge 
+                            variant={
+                              job.status === 'completed' ? 'success' :
+                              job.status === 'failed' ? 'destructive' :
+                              job.status === 'running' ? 'warning' : 'outline'
+                            }
+                            className="capitalize"
+                          >
+                            {job.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  {jobs.filter(job => {
+                    if (filterStatus === 'all') return true;
+                    return job.status === filterStatus;
+                  }).length === 0 && (
+                    <div className="text-center py-6 text-zinc-500 text-xs italic">
+                      No jobs found in this status.
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

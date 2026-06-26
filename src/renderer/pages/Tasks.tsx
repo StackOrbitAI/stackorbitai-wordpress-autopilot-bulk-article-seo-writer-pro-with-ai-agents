@@ -14,7 +14,14 @@ import {
   ChevronLeft, 
   AlertTriangle,
   MonitorPlay,
-  FileText
+  FileText,
+  Loader2,
+  Search,
+  ArrowUpDown,
+  SlidersHorizontal,
+  MoreVertical,
+  ExternalLink,
+  RotateCcw
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -67,6 +74,18 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
 
   const [formError, setFormError] = useState('');
 
+  // Additional states for Categories & Actions
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [categories, setCategories] = useState<{ id: number; name: string; slug: string }[]>([]);
+  const [fetchingCategories, setFetchingCategories] = useState<boolean>(false);
+  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const [activeMenuTaskId, setActiveMenuTaskId] = useState<number | null>(null);
+
+  // Search/Filter/Sort
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+
   const fetchTasks = async () => {
     const api = (window as any).api;
     if (!api) return;
@@ -75,6 +94,22 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       setTasks(data);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const fetchCategories = async (siteId: string) => {
+    if (!siteId) return;
+    setFetchingCategories(true);
+    const api = (window as any).api;
+    if (!api) return;
+    try {
+      const cats = await api.getWordPressCategories(parseInt(siteId, 10));
+      setCategories(cats || []);
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+      setCategories([]);
+    } finally {
+      setFetchingCategories(false);
     }
   };
 
@@ -87,7 +122,20 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       setWebsites(webs);
       setProviders(provs);
       
-      if (webs.length > 0) setWebsiteId(webs[0].id.toString());
+      const savedSettings = await api.getSettings();
+      const lastWebId = savedSettings.find((s: any) => s.key === 'last_selected_website')?.value;
+      const lastCat = savedSettings.find((s: any) => s.key === 'last_selected_category')?.value;
+
+      if (lastWebId && webs.some(w => w.id.toString() === lastWebId)) {
+        setWebsiteId(lastWebId);
+      } else if (webs.length > 0) {
+        setWebsiteId(webs[0].id.toString());
+      }
+
+      if (lastCat) {
+        setCategory(lastCat);
+      }
+      
       if (provs.length > 0) {
         setProviderId(provs[0].id.toString());
         const models = JSON.parse(provs[0].models || '[]');
@@ -110,6 +158,76 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
   useEffect(() => {
     fetchTasks();
     fetchDependencies();
+  }, []);
+
+  useEffect(() => {
+    if (websiteId) {
+      fetchCategories(websiteId);
+    }
+  }, [websiteId]);
+
+  // Load wizard draft from local storage on mount
+  useEffect(() => {
+    const savedStateStr = localStorage.getItem('task_wizard_draft');
+    if (savedStateStr) {
+      try {
+        const draft = JSON.parse(savedStateStr);
+        setName(draft.name || '');
+        setWebsiteId(draft.websiteId || '');
+        setLanguage(draft.language || 'English');
+        setCountry(draft.country || 'United States');
+        setCategory(draft.category || '');
+        setKeywords(draft.keywords || []);
+        setPromptTemplate(draft.promptTemplate || '');
+        setProviderId(draft.providerId || '');
+        setModel(draft.model || '');
+        setImageGeneration(draft.imageGeneration !== undefined ? draft.imageGeneration : true);
+        setImageStyle(draft.imageStyle || 'photorealistic');
+        setImageSize(draft.imageSize || '1200x628');
+        setArticleLength(draft.articleLength || 'medium');
+        setPublishingMode(draft.publishingMode || 'draft');
+        setSeoPlugin(draft.seoPlugin || 'yoast');
+        setIsScheduled(draft.isScheduled || false);
+        setScheduleDate(draft.scheduleDate || '');
+        setScheduleTime(draft.scheduleTime || '');
+        setScheduleFrequency(draft.scheduleFrequency || 'once');
+        setStep(draft.step || 1);
+        if (draft.editingTaskId) {
+          setEditingTaskId(draft.editingTaskId);
+        }
+      } catch (err) {
+        console.error('Error parsing wizard draft:', err);
+      }
+    }
+  }, []);
+
+  // Autosave draft to local storage
+  useEffect(() => {
+    if (!openAdd) return;
+    const interval = setInterval(() => {
+      const draft = {
+        name, websiteId, language, country, category, keywords,
+        promptTemplate, providerId, model, imageGeneration, imageStyle,
+        imageSize, articleLength, publishingMode, seoPlugin, isScheduled,
+        scheduleDate, scheduleTime, scheduleFrequency, step, editingTaskId
+      };
+      localStorage.setItem('task_wizard_draft', JSON.stringify(draft));
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [
+    openAdd, name, websiteId, language, country, category, keywords,
+    promptTemplate, providerId, model, imageGeneration, imageStyle,
+    imageSize, articleLength, publishingMode, seoPlugin, isScheduled,
+    scheduleDate, scheduleTime, scheduleFrequency, step, editingTaskId
+  ]);
+
+  // Click outside to close dropdowns
+  useEffect(() => {
+    const handleWindowClick = () => {
+      setActiveMenuTaskId(null);
+    };
+    window.addEventListener('click', handleWindowClick);
+    return () => window.removeEventListener('click', handleWindowClick);
   }, []);
 
   // Update available models when selected provider changes
@@ -214,6 +332,61 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleStopTask = async (id: number) => {
+    const api = (window as any).api;
+    if (!api) return;
+    try {
+      await api.stopTask(id);
+      fetchTasks();
+    } catch (err: any) {
+      alert(`Failed to stop task: ${err.message}`);
+    }
+  };
+
+  const handleRestartTask = async (id: number) => {
+    if (!confirm('Are you sure you want to restart this task? This will reset all keywords back to waiting and clear previously generated content.')) return;
+    const api = (window as any).api;
+    if (!api) return;
+    try {
+      await api.restartTask(id);
+      fetchTasks();
+      onNavigate('queue', id);
+    } catch (err: any) {
+      alert(`Failed to restart task: ${err.message}`);
+    }
+  };
+
+  const handleConvertToDraft = async (task: any) => {
+    const api = (window as any).api;
+    if (!api) return;
+    try {
+      const payload = {
+        name: task.name,
+        websiteId: task.website_id,
+        language: task.language,
+        country: task.country,
+        category: task.category,
+        keywords: JSON.parse(task.keywords || '[]'),
+        promptTemplate: task.prompt_template,
+        providerId: task.provider_id,
+        model: task.model,
+        imageGeneration: task.image_generation === 1,
+        imageStyle: task.image_style,
+        imageSize: task.image_size,
+        articleLength: task.article_length,
+        publishingMode: task.publishing_mode,
+        seoSettings: JSON.parse(task.seo_settings || '{}'),
+        scheduleSettings: JSON.parse(task.schedule_settings || '{}'),
+        isScheduled: task.is_scheduled === 1,
+        status: 'draft'
+      };
+      await api.updateTask(task.id, payload);
+      await fetchTasks();
+    } catch (err: any) {
+      alert(`Failed to convert task to draft: ${err.message}`);
+    }
+  };
+
   const handleDuplicate = async (id: number) => {
     const api = (window as any).api;
     if (!api) return;
@@ -235,6 +408,76 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     } catch (err: any) {
       alert(`Failed to delete task: ${err.message}`);
     }
+  };
+
+  const handleEditTask = (task: any) => {
+    setEditingTaskId(task.id);
+    setName(task.name);
+    setWebsiteId(task.website_id.toString());
+    setLanguage(task.language || 'English');
+    setCountry(task.country || 'United States');
+    setCategory(task.category || '');
+    setKeywords(JSON.parse(task.keywords || '[]'));
+    setPromptTemplate(task.prompt_template);
+    setProviderId(task.provider_id.toString());
+    setModel(task.model);
+    setImageGeneration(task.image_generation === 1);
+    setImageStyle(task.image_style || 'photorealistic');
+    setImageSize(task.image_size || '1200x628');
+    setArticleLength(task.article_length || 'medium');
+    setPublishingMode(task.publishing_mode || 'draft');
+    
+    const seo = JSON.parse(task.seo_settings || '{}');
+    setSeoPlugin(seo.plugin || 'yoast');
+
+    const sched = JSON.parse(task.schedule_settings || '{}');
+    if (sched.startDate) {
+      const dateObj = new Date(sched.startDate);
+      const yyyy = dateObj.getFullYear();
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dateObj.getDate()).padStart(2, '0');
+      setScheduleDate(`${yyyy}-${mm}-${dd}`);
+      
+      const hh = String(dateObj.getHours()).padStart(2, '0');
+      const min = String(dateObj.getMinutes()).padStart(2, '0');
+      setScheduleTime(`${hh}:${min}`);
+      setScheduleFrequency(sched.frequency || 'once');
+      setIsScheduled(true);
+    } else {
+      setIsScheduled(false);
+      setScheduleDate('');
+      setScheduleTime('');
+      setScheduleFrequency('once');
+    }
+
+    setStep(1);
+    setFormError('');
+    setOpenAdd(true);
+  };
+
+  const resetForm = () => {
+    setEditingTaskId(null);
+    setStep(1);
+    setName('');
+    if (websites.length > 0) setWebsiteId(websites[0].id.toString());
+    setLanguage('English');
+    setCountry('United States');
+    setCategory('');
+    setKeywords([]);
+    setPromptTemplate("Write an exhaustive, SEO optimized blog post about: {keyword}. Include H2/H3 subheadings, lists, and a table if helpful. Target length is {length}.");
+    if (providers.length > 0) setProviderId(providers[0].id.toString());
+    setImageGeneration(true);
+    setImageStyle('photorealistic');
+    setImageSize('1200x628');
+    setArticleLength('medium');
+    setPublishingMode('draft');
+    setSeoPlugin('yoast');
+    setIsScheduled(false);
+    setScheduleDate('');
+    setScheduleTime('');
+    setScheduleFrequency('once');
+    setFormError('');
+    localStorage.removeItem('task_wizard_draft');
   };
 
   const validateStep = (currentStep: number): boolean => {
@@ -318,27 +561,40 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     };
 
     try {
-      const res = await api.createTask(taskPayload);
-      if (res.success) {
-        if (!isScheduled) {
-          try {
-            await api.startTask(res.taskId);
-          } catch (startErr) {
-            console.error('Failed to auto-start task:', startErr);
-          }
+      if (editingTaskId) {
+        const currentTask = tasks.find(t => t.id === editingTaskId);
+        const res = await api.updateTask(editingTaskId, {
+          ...taskPayload,
+          status: currentTask?.status || 'draft'
+        });
+        if (res.success) {
+          setOpenAdd(false);
+          resetForm();
+          fetchTasks();
         }
-        setOpenAdd(false);
-        setStep(1);
-        setName('');
-        setKeywords([]);
-        setCategory('');
-        fetchTasks();
-        if (!isScheduled) {
-          onNavigate('queue', res.taskId);
+      } else {
+        const res = await api.createTask(taskPayload);
+        if (res.success) {
+          await api.updateSetting('last_selected_website', websiteId);
+          await api.updateSetting('last_selected_category', category);
+
+          if (!isScheduled) {
+            try {
+              await api.startTask(res.taskId);
+            } catch (startErr) {
+              console.error('Failed to auto-start task:', startErr);
+            }
+          }
+          setOpenAdd(false);
+          resetForm();
+          fetchTasks();
+          if (!isScheduled) {
+            onNavigate('queue', res.taskId);
+          }
         }
       }
     } catch (err: any) {
-      setFormError(err.message || 'Error creating task.');
+      setFormError(err.message || 'Error saving task.');
     }
   };
 
@@ -389,14 +645,50 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Category Target</label>
-              <Input 
-                placeholder="Tech, Health, Finance (optional)" 
-                value={category} 
-                onChange={(e) => setCategory(e.target.value)} 
-                className="bg-zinc-950 border-zinc-800"
-              />
+            <div className="space-y-1.5 relative">
+              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex justify-between">
+                <span>Category Target</span>
+                {fetchingCategories && <Loader2 className="h-3 w-3 animate-spin text-indigo-400" />}
+              </label>
+              
+              <div className="relative">
+                <Input 
+                  placeholder={fetchingCategories ? "Fetching categories from WordPress..." : "Search categories or type custom..."}
+                  value={category} 
+                  onChange={(e) => {
+                    setCategory(e.target.value);
+                    setDropdownOpen(true);
+                  }}
+                  onFocus={() => setDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setDropdownOpen(false), 250)}
+                  className="bg-zinc-950 border-zinc-800 pr-8 text-xs"
+                />
+              </div>
+
+              {dropdownOpen && categories.length > 0 && (
+                <div className="absolute z-[100] w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                  {categories
+                    .filter(cat => cat.name.toLowerCase().includes(category.toLowerCase()))
+                    .map(cat => (
+                      <div
+                        key={cat.id}
+                        onMouseDown={() => {
+                          setCategory(cat.name);
+                          setDropdownOpen(false);
+                        }}
+                        className="px-3 py-2 text-xs text-zinc-300 hover:bg-indigo-600 hover:text-white cursor-pointer transition-colors"
+                      >
+                        {cat.name}
+                      </div>
+                    ))
+                  }
+                  {categories.filter(cat => cat.name.toLowerCase().includes(category.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-2 text-[11px] text-zinc-500 italic">
+                      No matching WordPress categories. Type custom to create.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -653,6 +945,53 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
         </Button>
       </div>
 
+      {/* Search, Filter, Sort Controls */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-zinc-900/20 border border-zinc-800/80 p-4 rounded-xl">
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+          <Input
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 bg-zinc-950 border-zinc-800 text-xs h-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-3 w-full md:w-auto items-center justify-end">
+          <div className="flex items-center space-x-1.5 text-xs text-zinc-400">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>Filter:</span>
+          </div>
+          <Select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-9 text-xs w-32 border-zinc-800"
+          >
+            <option value="all">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="running">Running</option>
+            <option value="paused">Paused</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="cancelled">Cancelled</option>
+          </Select>
+
+          <div className="flex items-center space-x-1.5 text-xs text-zinc-400 ml-2">
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            <span>Sort:</span>
+          </div>
+          <Select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value)}
+            className="h-9 text-xs w-36 border-zinc-800"
+          >
+            <option value="newest">Newest Created</option>
+            <option value="oldest">Oldest Created</option>
+            <option value="name">Alphabetical</option>
+          </Select>
+        </div>
+      </div>
+
       {loading ? (
         <p className="text-zinc-500 text-xs py-10 text-center">Loading bulk task queues...</p>
       ) : tasks.length === 0 ? (
@@ -689,107 +1028,162 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
-                  {tasks.map((task) => {
-                    const kwList = JSON.parse(task.keywords || '[]');
-                    return (
-                      <tr key={task.id} className="hover:bg-zinc-900/10">
-                        <td className="p-4 font-bold font-outfit text-zinc-200">
-                          {task.name}
-                        </td>
-                        <td className="p-4 text-zinc-400 truncate max-w-[150px]">
-                          {task.website_name || 'Disconnected'}
-                        </td>
-                        <td className="p-4">
-                          <span className="font-semibold text-indigo-400">{kwList.length} keywords</span>
-                        </td>
-                        <td className="p-4 truncate max-w-[150px]">
-                          <span className="text-zinc-500 font-mono text-[10px]">
-                            {task.model} ({task.provider_name})
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <Badge 
-                            variant={
-                              task.status === 'running' ? 'warning' :
-                              task.status === 'completed' ? 'success' :
-                              task.status === 'failed' ? 'destructive' :
-                              task.status === 'scheduled' ? 'info' : 'outline'
-                            }
-                            className="capitalize"
-                          >
-                            {task.status}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end space-x-1.5">
-                            {task.status !== 'running' ? (
+                  {tasks
+                    .filter(task => {
+                      const matchesSearch = task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                            (task.website_name && task.website_name.toLowerCase().includes(searchQuery.toLowerCase()));
+                      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+                      return matchesSearch && matchesStatus;
+                    })
+                    .sort((a, b) => {
+                      if (sortBy === 'newest') {
+                        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+                      } else if (sortBy === 'oldest') {
+                        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+                      } else if (sortBy === 'name') {
+                        return a.name.localeCompare(b.name);
+                      }
+                      return 0;
+                    })
+                    .map((task) => {
+                      const kwList = JSON.parse(task.keywords || '[]');
+                      return (
+                        <tr key={task.id} className="hover:bg-zinc-900/10">
+                          <td className="p-4 font-bold font-outfit text-zinc-200">
+                            {task.name}
+                          </td>
+                          <td className="p-4 text-zinc-400 truncate max-w-[150px]">
+                            {task.website_name || 'Disconnected'}
+                          </td>
+                          <td className="p-4">
+                            <span className="font-semibold text-indigo-400">{kwList.length} keywords</span>
+                          </td>
+                          <td className="p-4 truncate max-w-[150px]">
+                            <span className="text-zinc-500 font-mono text-[10px]">
+                              {task.model} ({task.provider_name})
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <Badge 
+                              variant={
+                                task.status === 'running' ? 'warning' :
+                                task.status === 'completed' ? 'success' :
+                                task.status === 'failed' ? 'destructive' :
+                                task.status === 'scheduled' ? 'info' : 'outline'
+                              }
+                              className="capitalize"
+                            >
+                              {task.status}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end space-x-1.5 relative">
+                              {task.status !== 'running' ? (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  title="Run Task Pipeline"
+                                  onClick={() => handleStartTask(task.id)}
+                                  className="h-8 w-8 border-zinc-800 text-emerald-400 hover:bg-emerald-500/5 hover:text-emerald-300"
+                                >
+                                  <Play className="h-3.5 w-3.5 fill-emerald-400/20" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  title="Pause Queue"
+                                  onClick={() => handlePauseTask(task.id)}
+                                  className="h-8 w-8 border-zinc-800 text-amber-400 hover:bg-amber-500/5 hover:text-amber-300"
+                                >
+                                  <Pause className="h-3.5 w-3.5 fill-amber-400/20" />
+                                </Button>
+                              )}
+
+                              {(task.status === 'running' || task.status === 'paused') && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  title="Stop Queue"
+                                  onClick={() => handleStopTask(task.id)}
+                                  className="h-8 w-8 border-zinc-800 text-rose-400 hover:bg-rose-500/5 hover:text-rose-300"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+
                               <Button
                                 variant="outline"
                                 size="icon"
-                                title="Run Task Pipeline"
-                                onClick={() => handleStartTask(task.id)}
-                                className="h-8 w-8 border-zinc-800 text-emerald-400 hover:bg-emerald-500/5 hover:text-emerald-300"
+                                title="Monitor Queue"
+                                onClick={() => onNavigate('queue', task.id)}
+                                className="h-8 w-8 border-zinc-800 text-indigo-400 hover:bg-indigo-500/5"
                               >
-                                <Play className="h-3.5 w-3.5 fill-emerald-400/20" />
+                                <MonitorPlay className="h-3.5 w-3.5" />
                               </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                title="Pause Queue"
-                                onClick={() => handlePauseTask(task.id)}
-                                className="h-8 w-8 border-zinc-800 text-amber-400 hover:bg-amber-500/5 hover:text-amber-300"
-                              >
-                                <Pause className="h-3.5 w-3.5 fill-amber-400/20" />
-                              </Button>
-                            )}
 
-                            {task.status === 'running' && (
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                title="Cancel Queue"
-                                onClick={() => handleCancelTask(task.id)}
-                                className="h-8 w-8 border-zinc-800 text-rose-400 hover:bg-rose-500/5 hover:text-rose-300"
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              title="Monitor Queue"
-                              onClick={() => onNavigate('queue', task.id)}
-                              className="h-8 w-8 border-zinc-800 text-indigo-400 hover:bg-indigo-500/5"
-                            >
-                              <MonitorPlay className="h-3.5 w-3.5" />
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Duplicate Pipeline"
-                              onClick={() => handleDuplicate(task.id)}
-                              className="h-8 w-8 text-zinc-500 hover:text-zinc-300"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Delete Task"
-                              onClick={() => handleDelete(task.id)}
-                              className="h-8 w-8 text-zinc-500 hover:text-red-400"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                              <div className="relative inline-block text-left">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="More Actions"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuTaskId(activeMenuTaskId === task.id ? null : task.id);
+                                  }}
+                                  className="h-8 w-8 text-zinc-500 hover:text-zinc-300"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                                
+                                {activeMenuTaskId === task.id && (
+                                  <div className="absolute right-0 mt-1 w-44 rounded-xl bg-zinc-900 border border-zinc-800 shadow-xl z-50 py-1 text-left">
+                                    <button
+                                      onClick={() => handleEditTask(task)}
+                                      className="w-full px-4 py-2 text-xs hover:bg-zinc-800 text-zinc-300 flex items-center space-x-2 transition-all"
+                                    >
+                                      <FileEdit className="h-3.5 w-3.5 text-blue-400" />
+                                      <span>Edit Pipeline</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleRestartTask(task.id)}
+                                      className="w-full px-4 py-2 text-xs hover:bg-zinc-800 text-zinc-300 flex items-center space-x-2 transition-all"
+                                    >
+                                      <RotateCcw className="h-3.5 w-3.5 text-amber-400" />
+                                      <span>Restart Queue</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDuplicate(task.id)}
+                                      className="w-full px-4 py-2 text-xs hover:bg-zinc-800 text-zinc-300 flex items-center space-x-2 transition-all"
+                                    >
+                                      <Copy className="h-3.5 w-3.5 text-indigo-400" />
+                                      <span>Duplicate Task</span>
+                                    </button>
+                                    {task.status !== 'draft' && (
+                                      <button
+                                        onClick={() => handleConvertToDraft(task)}
+                                        className="w-full px-4 py-2 text-xs hover:bg-zinc-800 text-zinc-300 flex items-center space-x-2 transition-all"
+                                      >
+                                        <Clock className="h-3.5 w-3.5 text-sky-400" />
+                                        <span>Convert to Draft</span>
+                                      </button>
+                                    )}
+                                    <div className="border-t border-zinc-800/60 my-1"></div>
+                                    <button
+                                      onClick={() => handleDelete(task.id)}
+                                      className="w-full px-4 py-2 text-xs hover:bg-zinc-800 text-rose-400 flex items-center space-x-2 transition-all"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                                      <span>Delete Task</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -798,11 +1192,21 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       )}
 
       {/* Add Task Dialog Wizard */}
-      <Dialog open={openAdd} onOpenChange={setOpenAdd}>
-        <DialogContent onClose={() => setOpenAdd(false)}>
+      <Dialog open={openAdd} onOpenChange={(open) => {
+        if (!open) {
+          resetForm();
+        }
+        setOpenAdd(open);
+      }}>
+        <DialogContent onClose={() => {
+          resetForm();
+          setOpenAdd(false);
+        }}>
           <DialogHeader>
-            <DialogTitle>Setup Bulk Article Pipeline</DialogTitle>
-            <DialogDescription>Configure details, keywords, model options, and scheduling intervals.</DialogDescription>
+            <DialogTitle>{editingTaskId ? 'Edit Bulk Article Pipeline' : 'Setup Bulk Article Pipeline'}</DialogTitle>
+            <DialogDescription>
+              {editingTaskId ? 'Modify details, keywords, model options, and scheduling intervals.' : 'Configure details, keywords, model options, and scheduling intervals.'}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="py-2 min-h-[300px]">
@@ -853,7 +1257,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                   className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold font-outfit flex items-center space-x-1.5"
                 >
                   <MonitorPlay className="h-4 w-4" />
-                  <span>Build Pipeline</span>
+                  <span>{editingTaskId ? 'Save Changes' : 'Build Pipeline'}</span>
                 </Button>
               )}
             </div>

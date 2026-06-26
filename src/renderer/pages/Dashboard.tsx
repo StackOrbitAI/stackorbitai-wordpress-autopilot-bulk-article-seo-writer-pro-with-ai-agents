@@ -8,7 +8,8 @@ import {
   TrendingUp, 
   Sparkles,
   ArrowRight,
-  Database
+  Database,
+  ExternalLink
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -118,6 +119,65 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {stats.activePipeline && (
+        <Card className="border-amber-500/20 bg-amber-500/[0.01] hover:border-amber-500/30 transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-zinc-900/50">
+            <div>
+              <CardTitle className="text-sm flex items-center text-amber-400 font-bold">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping mr-2"></span>
+                Active Pipeline: {stats.activePipeline.name}
+              </CardTitle>
+              <CardDescription>Real-time keyword generation tracking</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate('queue')}
+              className="border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs"
+            >
+              Open Live Monitor
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div className="space-y-1">
+                <span className="text-zinc-500">Progress</span>
+                <p className="font-bold text-zinc-200">{stats.activePipeline.completed} / {stats.activePipeline.total} keywords ({stats.activePipeline.progress}%)</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-zinc-500">Est. Remaining Time</span>
+                <p className="font-bold text-zinc-200">{stats.activePipeline.etrMinutes} mins</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-zinc-500">Next Keyword</span>
+                <p className="font-bold text-zinc-200 truncate max-w-[180px]">{stats.activePipeline.nextKeyword || 'None (Queue Empty)'}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-zinc-500">Last Published Article</span>
+                <p className="font-bold text-zinc-200 truncate max-w-[180px]">
+                  {stats.activePipeline.lastPublishedKeyword ? (
+                    stats.activePipeline.lastPublishedUrl ? (
+                      <a href={stats.activePipeline.lastPublishedUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline inline-flex items-center">
+                        {stats.activePipeline.lastPublishedKeyword}
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </a>
+                    ) : stats.activePipeline.lastPublishedKeyword
+                  ) : 'None yet'}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-amber-500 to-indigo-500 transition-all duration-500" 
+                  style={{ width: `${stats.activePipeline.progress}%` }}
+                ></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-5">
