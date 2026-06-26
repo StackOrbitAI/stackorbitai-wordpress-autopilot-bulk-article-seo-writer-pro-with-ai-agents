@@ -1,7 +1,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import FormData from 'form-data';
+import https from 'https';
 
 export interface WordPressSiteConfig {
   url: string;
@@ -42,6 +42,11 @@ function cleanUrl(url: string): string {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
+// HTTPS agent that ignores SSL certificate errors (crucial for local/self-signed setups)
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
+
 function getHeaders(authHeader: string, extraHeaders: Record<string, string> = {}): Record<string, string> {
   return {
     'Authorization': authHeader,
@@ -57,23 +62,127 @@ function getAuthHeader(config: WordPressSiteConfig): string {
 }
 
 /**
- * Validates connection to WordPress site by fetching current user details.
+ * Executes an Axios request manually following 3xx redirects to preserve Authorization header, method and body,
+ * and bypassing self-signed/invalid SSL certificates.
  */
-export async function testWordPressConnection(config: WordPressSiteConfig): Promise<boolean> {
+async function requestWithRedirects(axiosConfig: any, maxRedirects = 5): Promise<any> {
+  const currentConfig = {
+    ...axiosConfig,
+    maxRedirects: 0,
+    httpsAgent,
+    validateStatus: (status: number) => (status >= 200 && status < 300) || (status >= 300 && status < 400)
+  };
+
+  let redirectCount = 0;
+  while (redirectCount <= maxRedirects) {
+    const response = await axios(currentConfig);
+    if (response.status >= 300 && response.status < 400) {
+      const redirectUrl = response.headers.location;
+      if (!redirectUrl) {
+        return response;
+      }
+
+      // Resolve redirect URL relative to the original URL
+      const nextUrl = new URL(redirectUrl, currentConfig.url).toString();
+      console.log(`[WordPress] Redirecting to: ${nextUrl} (Status ${response.status})`);
+
+      currentConfig.url = nextUrl;
+      currentConfig.headers = { ...currentConfig.headers };
+
+      redirectCount++;
+    } else {
+      return response;
+    }
+  }
+  throw new Error('Too many redirects');
+}
+
+/**
+ * Tries to query WordPress REST API by probing standard and fallback query-parameter endpoints:
+ * 1. Pretty Permalinks: baseUrl/wp-json/wp/v2/...
+ * 2. Pretty Permalinks Index Fallback: baseUrl/index.php/wp-json/wp/v2/...
+ * 3. Plain Permalinks Fallback: baseUrl/?rest_route=/wp/v2/...
+ * 4. Plain Permalinks Index Fallback: baseUrl/index.php?rest_route=/wp/v2/...
+ */
+async function makeWordPressRequest(
+  config: WordPressSiteConfig,
+  path: string,
+  axiosConfigExtra: any = {}
+): Promise<any> {
   const baseUrl = cleanUrl(config.url);
   const authHeader = getAuthHeader(config);
-  
+  const headers = getHeaders(authHeader, axiosConfigExtra.headers || {});
+
+  // Determine standard and fallback REST URL options
+  const endpoints = [
+    { type: 'standard', url: `${baseUrl}/wp-json${path}` },
+    { type: 'index_json', url: `${baseUrl}/index.php/wp-json${path}` },
+    { type: 'param', url: baseUrl.includes('?') ? `${baseUrl}&rest_route=${path}` : `${baseUrl}/?rest_route=${path}` },
+    { type: 'index_param', url: baseUrl.includes('?') ? `${baseUrl}&rest_route=${path}` : `${baseUrl}/index.php?rest_route=${path}` }
+  ];
+
+  let lastError: any = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`[WordPress] Requesting [${endpoint.type}]: ${endpoint.url}`);
+      
+      // If we have custom params in query, merge/format them correctly
+      let finalUrl = endpoint.url;
+      if (endpoint.type === 'param' || endpoint.type === 'index_param') {
+        // For query param endpoints, if the caller passed standard Axios params, we append them to the rest_route
+        if (axiosConfigExtra.params) {
+          const searchParams = new URLSearchParams(axiosConfigExtra.params);
+          finalUrl = `${finalUrl}&${searchParams.toString()}`;
+        }
+      }
+
+      const response = await requestWithRedirects({
+        ...axiosConfigExtra,
+        url: finalUrl,
+        headers,
+        params: (endpoint.type === 'standard' || endpoint.type === 'index_json') ? axiosConfigExtra.params : undefined,
+        timeout: 30000
+      });
+
+      return response;
+    } catch (error: any) {
+      console.warn(`[WordPress] Request failed for endpoint [${endpoint.url}]:`, error.message);
+      lastError = error;
+      
+      // If it's a 401/403 or network failure, we still continue to fallback endpoints
+      // in case standard /wp-json routes are explicitly blocked/forbidden by security plugins (e.g., Wordfence, Cloudflare).
+    }
+  }
+
+  throw lastError || new Error(`Failed to access WordPress REST API for path ${path}`);
+}
+
+/**
+ * Validates connection to WordPress site by fetching current user details or categories fallback.
+ */
+export async function testWordPressConnection(config: WordPressSiteConfig): Promise<boolean> {
   try {
-    const response = await axios.get(`${baseUrl}/wp-json/wp/v2/users/me`, {
-      headers: getHeaders(authHeader),
-      timeout: 30000
+    // 1. Try checking /wp/v2/users/me first
+    try {
+      const response = await makeWordPressRequest(config, '/wp/v2/users/me', { method: 'get' });
+      if (response.data && response.data.id) {
+        return true;
+      }
+    } catch (userErr: any) {
+      console.warn('[WordPress] users/me check failed, trying categories check fallback...');
+    }
+
+    // 2. Fallback check: retrieve categories with limit 1
+    const fallbackResponse = await makeWordPressRequest(config, '/wp/v2/categories', {
+      method: 'get',
+      params: { per_page: 1 }
     });
-    
-    // If successfully returned details, authentication is valid
-    return !!response.data?.id;
+
+    return Array.isArray(fallbackResponse.data);
   } catch (error: any) {
     console.error(`[WordPress] Connection check failed for ${config.url}:`, error.message);
-    throw new Error(error.response?.data?.message || 'Failed to connect to WordPress REST API');
+    throw new Error(error.response?.data?.message || error.message || 'Failed to connect to WordPress REST API');
   }
 }
 
@@ -81,8 +190,7 @@ export async function testWordPressConnection(config: WordPressSiteConfig): Prom
  * Finds a category by slug or creates it if missing.
  */
 export async function findOrCreateCategory(
-  baseUrl: string,
-  authHeader: string,
+  config: WordPressSiteConfig,
   categoryName: string
 ): Promise<number | null> {
   if (!categoryName) return null;
@@ -91,9 +199,9 @@ export async function findOrCreateCategory(
 
   try {
     // 1. Search for existing category
-    const searchResponse = await axios.get(`${baseUrl}/wp-json/wp/v2/categories`, {
-      params: { slug },
-      headers: getHeaders(authHeader)
+    const searchResponse = await makeWordPressRequest(config, '/wp/v2/categories', {
+      method: 'get',
+      params: { slug }
     });
 
     if (searchResponse.data && searchResponse.data.length > 0) {
@@ -101,11 +209,9 @@ export async function findOrCreateCategory(
     }
 
     // 2. Create category if not found
-    const createResponse = await axios.post(`${baseUrl}/wp-json/wp/v2/categories`, {
-      name,
-      slug
-    }, {
-      headers: getHeaders(authHeader)
+    const createResponse = await makeWordPressRequest(config, '/wp/v2/categories', {
+      method: 'post',
+      data: { name, slug }
     });
 
     return createResponse.data?.id || null;
@@ -119,8 +225,7 @@ export async function findOrCreateCategory(
  * Finds or creates tags. Returns list of tag IDs.
  */
 export async function findOrCreateTags(
-  baseUrl: string,
-  authHeader: string,
+  config: WordPressSiteConfig,
   tags: string[]
 ): Promise<number[]> {
   if (!tags || tags.length === 0) return [];
@@ -133,9 +238,9 @@ export async function findOrCreateTags(
 
     try {
       // 1. Search for existing tag
-      const searchResponse = await axios.get(`${baseUrl}/wp-json/wp/v2/tags`, {
-        params: { slug },
-        headers: getHeaders(authHeader)
+      const searchResponse = await makeWordPressRequest(config, '/wp/v2/tags', {
+        method: 'get',
+        params: { slug }
       });
 
       if (searchResponse.data && searchResponse.data.length > 0) {
@@ -144,11 +249,9 @@ export async function findOrCreateTags(
       }
 
       // 2. Create tag
-      const createResponse = await axios.post(`${baseUrl}/wp-json/wp/v2/tags`, {
-        name,
-        slug
-      }, {
-        headers: getHeaders(authHeader)
+      const createResponse = await makeWordPressRequest(config, '/wp/v2/tags', {
+        method: 'post',
+        data: { name, slug }
       });
 
       if (createResponse.data?.id) {
@@ -170,9 +273,6 @@ export async function uploadWordPressMedia(
   localImagePath: string,
   altText: string
 ): Promise<{ id: number; url: string }> {
-  const baseUrl = cleanUrl(config.url);
-  const authHeader = getAuthHeader(config);
-
   if (!fs.existsSync(localImagePath)) {
     throw new Error(`Media file not found at path: ${localImagePath}`);
   }
@@ -181,11 +281,13 @@ export async function uploadWordPressMedia(
   const fileBuffer = fs.readFileSync(localImagePath);
 
   try {
-    const response = await axios.post(`${baseUrl}/wp-json/wp/v2/media`, fileBuffer, {
-      headers: getHeaders(authHeader, {
+    const response = await makeWordPressRequest(config, '/wp/v2/media', {
+      method: 'post',
+      data: fileBuffer,
+      headers: {
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Type': 'image/png'
-      }),
+      },
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
       timeout: 60000
@@ -200,11 +302,12 @@ export async function uploadWordPressMedia(
 
     // Set Alt text and description
     try {
-      await axios.post(`${baseUrl}/wp-json/wp/v2/media/${mediaId}`, {
-        alt_text: altText,
-        description: altText
-      }, {
-        headers: getHeaders(authHeader)
+      await makeWordPressRequest(config, `/wp/v2/media/${mediaId}`, {
+        method: 'post',
+        data: {
+          alt_text: altText,
+          description: altText
+        }
       });
     } catch (metaErr: any) {
       console.warn('[WordPress] Failed to set image alt text:', metaErr.message);
@@ -213,7 +316,7 @@ export async function uploadWordPressMedia(
     return { id: mediaId, url: mediaUrl };
   } catch (error: any) {
     console.error('[WordPress] Media upload failed:', error.message);
-    throw new Error(error.response?.data?.message || 'Failed to upload media to WordPress');
+    throw new Error(error.response?.data?.message || error.message || 'Failed to upload media to WordPress');
   }
 }
 
@@ -224,15 +327,12 @@ export async function createWordPressPost(
   config: WordPressSiteConfig,
   payload: PostPayload
 ): Promise<{ id: number; url: string }> {
-  const baseUrl = cleanUrl(config.url);
-  const authHeader = getAuthHeader(config);
-
   // 1. Resolve Category ID
   let categoryIds: number[] = [];
   if (payload.categoryName) {
     const catNames = payload.categoryName.split(',').map(c => c.trim()).filter(Boolean);
     for (const catName of catNames) {
-      const catId = await findOrCreateCategory(baseUrl, authHeader, catName);
+      const catId = await findOrCreateCategory(config, catName);
       if (catId) categoryIds.push(catId);
     }
   }
@@ -240,7 +340,7 @@ export async function createWordPressPost(
   // 2. Resolve Tag IDs
   let tagIds: number[] = [];
   if (payload.tags && payload.tags.length > 0) {
-    tagIds = await findOrCreateTags(baseUrl, authHeader, payload.tags);
+    tagIds = await findOrCreateTags(config, payload.tags);
   }
 
   // 3. Setup core body
@@ -286,10 +386,12 @@ export async function createWordPressPost(
   }
 
   try {
-    const response = await axios.post(`${baseUrl}/wp-json/wp/v2/posts`, body, {
-      headers: getHeaders(authHeader, {
+    const response = await makeWordPressRequest(config, '/wp/v2/posts', {
+      method: 'post',
+      data: body,
+      headers: {
         'Content-Type': 'application/json'
-      }),
+      },
       timeout: 30000
     });
 
@@ -299,7 +401,7 @@ export async function createWordPressPost(
     };
   } catch (error: any) {
     console.error('[WordPress] Post creation failed:', error.message);
-    throw new Error(error.response?.data?.message || 'Failed to publish post to WordPress');
+    throw new Error(error.response?.data?.message || error.message || 'Failed to publish post to WordPress');
   }
 }
 
@@ -309,14 +411,10 @@ export async function createWordPressPost(
 export async function getWordPressCategories(
   config: WordPressSiteConfig
 ): Promise<{ id: number; name: string; slug: string }[]> {
-  const baseUrl = cleanUrl(config.url);
-  const authHeader = getAuthHeader(config);
-
   try {
-    const response = await axios.get(`${baseUrl}/wp-json/wp/v2/categories`, {
-      params: { per_page: 100 },
-      headers: getHeaders(authHeader),
-      timeout: 30000
+    const response = await makeWordPressRequest(config, '/wp/v2/categories', {
+      method: 'get',
+      params: { per_page: 100 }
     });
     
     if (Array.isArray(response.data)) {
@@ -329,6 +427,6 @@ export async function getWordPressCategories(
     return [];
   } catch (error: any) {
     console.error(`[WordPress] Fetching categories failed for ${config.url}:`, error.message);
-    throw new Error(error.response?.data?.message || 'Failed to fetch categories from WordPress REST API');
+    throw new Error(error.response?.data?.message || error.message || 'Failed to fetch categories from WordPress REST API');
   }
 }

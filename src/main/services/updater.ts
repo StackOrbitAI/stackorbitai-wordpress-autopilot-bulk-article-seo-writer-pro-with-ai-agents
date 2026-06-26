@@ -1,7 +1,18 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
+let activeWindow: BrowserWindow | null = null;
+let isInitialized = false;
+
 export function setupAutoUpdater(mainWindow: BrowserWindow) {
+  activeWindow = mainWindow;
+
+  if (isInitialized) {
+    console.log('[Updater] AutoUpdater already initialized, skipping duplicate setup.');
+    return;
+  }
+  isInitialized = true;
+
   // Configure logging
   autoUpdater.logger = console;
   
@@ -24,8 +35,8 @@ export function setupAutoUpdater(mainWindow: BrowserWindow) {
 
   // Helper to send events to Renderer
   function sendUpdateStatus(channel: string, data: any = {}) {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(channel, data);
+    if (activeWindow && !activeWindow.isDestroyed()) {
+      activeWindow.webContents.send(channel, data);
     }
   }
 

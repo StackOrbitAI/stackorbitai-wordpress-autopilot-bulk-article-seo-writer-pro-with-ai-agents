@@ -1167,6 +1167,16 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                                 <MonitorPlay className="h-3.5 w-3.5" />
                               </Button>
 
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                title="Delete Task"
+                                onClick={() => handleDelete(task.id)}
+                                className="h-8 w-8 border-zinc-800 text-rose-400 hover:bg-rose-500/5 hover:text-rose-300"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+
                               <div className="relative inline-block text-left">
                                 <Button
                                   variant="ghost"
