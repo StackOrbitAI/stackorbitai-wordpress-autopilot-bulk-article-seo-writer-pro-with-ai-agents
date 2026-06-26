@@ -99,7 +99,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8 select-none">
+    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8">
       {/* Top Banner Card */}
       <div className="rounded-2xl border border-indigo-500/20 bg-gradient-to-r from-indigo-950/40 to-zinc-900/60 p-6 flex flex-col md:flex-row items-center justify-between glass shadow-xl shadow-indigo-500/[0.02]">
         <div className="space-y-1.5 text-center md:text-left mb-4 md:mb-0">

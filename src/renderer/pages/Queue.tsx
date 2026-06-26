@@ -164,7 +164,7 @@ const Queue: React.FC<QueueProps> = ({ selectedTaskId }) => {
   const etrMinutes = Math.ceil(etrSeconds / 60);
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8 select-none">
+    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold font-outfit text-zinc-100 flex items-center">

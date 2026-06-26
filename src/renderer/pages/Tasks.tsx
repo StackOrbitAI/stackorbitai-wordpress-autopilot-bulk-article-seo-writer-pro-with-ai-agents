@@ -629,6 +629,17 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                 <span>Category Target(s) (Select one or more)</span>
                 {fetchingCategories && <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />}
               </label>
+
+              {/* Filter Categories Search Input */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+                <Input 
+                  placeholder="Filter categories..."
+                  value={categoryQuery} 
+                  onChange={(e) => setCategoryQuery(e.target.value)}
+                  className="bg-zinc-950 border-zinc-800 text-xs pl-9 h-9 w-full"
+                />
+              </div>
               
               {/* Scrollable Box showing all categories directly */}
               <div className="border border-zinc-800 bg-zinc-950 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2.5">
@@ -636,8 +647,18 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                   <p className="text-zinc-500 text-[11px] italic py-1">Fetching categories from WordPress...</p>
                 ) : categories.length === 0 ? (
                   <p className="text-zinc-500 text-[11px] italic py-1">No categories found on connected site.</p>
-                ) : (
-                  categories.map((cat) => {
+                ) : (() => {
+                  const filtered = categories.filter((cat) => 
+                    cat.name.toLowerCase().includes(categoryQuery.toLowerCase())
+                  );
+                  if (filtered.length === 0) {
+                    return (
+                      <p className="text-zinc-500 text-[11px] italic py-1">
+                        No categories matching "{categoryQuery}" found.
+                      </p>
+                    );
+                  }
+                  return filtered.map((cat) => {
                     const isChecked = selectedCategories.includes(cat.name);
                     return (
                       <label 
@@ -659,39 +680,8 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                         <span className="font-medium">{cat.name}</span>
                       </label>
                     );
-                  })
-                )}
-              </div>
-
-              {/* Add Custom Category Field */}
-              <div className="flex gap-2 pt-1">
-                <Input 
-                  placeholder="Or type custom category & press Add/Enter..."
-                  value={categoryQuery} 
-                  onChange={(e) => setCategoryQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (categoryQuery.trim()) {
-                        setSelectedCategories(prev => Array.from(new Set([...prev, categoryQuery.trim()])));
-                        setCategoryQuery('');
-                      }
-                    }
-                  }}
-                  className="bg-zinc-950 border-zinc-800 text-xs flex-1 h-9"
-                />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (categoryQuery.trim()) {
-                      setSelectedCategories(prev => Array.from(new Set([...prev, categoryQuery.trim()])));
-                      setCategoryQuery('');
-                    }
-                  }}
-                  className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-zinc-300 text-xs px-3 h-9"
-                >
-                  Add
-                </Button>
+                  });
+                })()}
               </div>
 
               {/* Badges for selected categories */}
@@ -957,7 +947,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8 select-none">
+    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold font-outfit text-zinc-100 flex items-center">

@@ -45,7 +45,16 @@ export function initDatabase(): Promise<sqlite3.Database> {
         
         const parentDir = path.dirname(userDataPath);
         const oldDbPath = path.join(parentDir, 'stackorbitai-bulk-writer-pro', 'database', 'stackorbit_writer.db');
+        const oldKeyPath = path.join(parentDir, 'stackorbitai-bulk-writer-pro', '.security.key');
+        const newKeyPath = path.join(userDataPath, '.security.key');
         
+        // Migrate security key first (needed for database decryption)
+        if (fs.existsSync(oldKeyPath)) {
+          console.log(`[Security] Migrating legacy security key from: ${oldKeyPath} to: ${newKeyPath}`);
+          fs.copyFileSync(oldKeyPath, newKeyPath);
+          console.log('[Security] Legacy security key migrated successfully!');
+        }
+
         if (fs.existsSync(oldDbPath)) {
           console.log(`[Database] Migrating legacy database from: ${oldDbPath} to: ${dbPath}`);
           fs.copyFileSync(oldDbPath, dbPath);

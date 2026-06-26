@@ -85,7 +85,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8 select-none">
+    <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 space-y-8">
       <div>
         <h3 className="text-xl font-bold font-outfit text-zinc-100 flex items-center">
           <SettingsIcon className="h-5 w-5 text-indigo-400 mr-2" />
