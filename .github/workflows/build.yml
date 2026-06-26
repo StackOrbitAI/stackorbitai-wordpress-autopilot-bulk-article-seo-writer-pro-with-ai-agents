@@ -27,6 +27,9 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Update NPM to latest (Fixes node-gyp compatibility issues)
+        run: npm install -g npm@latest
+
       - name: Install Python setuptools (Required for SQLite compilation on macOS)
         if: matrix.os == 'macos-latest'
         run: pip3 install setuptools --break-system-packages
