@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, MenuItem } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { initDatabase, closeDatabase, dbAll, dbRun, dbGet } from './database/connection';
 import { encrypt, decrypt } from './services/security';
 import { testWordPressConnection, getWordPressCategories } from './services/wordpress';
@@ -11,12 +12,15 @@ import { startExpressServer, stopExpressServer } from './server';
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
+  const iconPath = path.join(__dirname, '../../build/icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 768,
     title: 'StackOrbitAI Bulk Writer Pro',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -25,6 +29,7 @@ function createWindow() {
     show: false,
     backgroundColor: '#09090b' // Match slate-950 background
   });
+
 
   // Open DevTools in dev mode
   const isDev = process.env.NODE_ENV === 'development';
