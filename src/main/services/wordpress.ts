@@ -221,8 +221,11 @@ export async function createWordPressPost(
   // 1. Resolve Category ID
   let categoryIds: number[] = [];
   if (payload.categoryName) {
-    const catId = await findOrCreateCategory(baseUrl, authHeader, payload.categoryName);
-    if (catId) categoryIds.push(catId);
+    const catNames = payload.categoryName.split(',').map(c => c.trim()).filter(Boolean);
+    for (const catName of catNames) {
+      const catId = await findOrCreateCategory(baseUrl, authHeader, catName);
+      if (catId) categoryIds.push(catId);
+    }
   }
 
   // 2. Resolve Tag IDs

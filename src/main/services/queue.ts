@@ -246,8 +246,6 @@ class QueueManager {
       
       const customPrompt = promptTemplate
         .replace(/{keyword}/g, keyword)
-        .replace(/{language}/g, job.language || 'English')
-        .replace(/{country}/g, job.country || 'United States')
         .replace(/{category}/g, job.category || 'General')
         .replace(/{length}/g, job.article_length || 'medium');
 

@@ -49,9 +49,8 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
   // Form Fields
   const [name, setName] = useState('');
   const [websiteId, setWebsiteId] = useState('');
-  const [language, setLanguage] = useState('English');
-  const [country, setCountry] = useState('United States');
-  const [category, setCategory] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [categoryQuery, setCategoryQuery] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
   const [keywordsText, setKeywordsText] = useState('');
   const [promptTemplate, setPromptTemplate] = useState(
@@ -133,7 +132,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       }
 
       if (lastCat) {
-        setCategory(lastCat);
+        setSelectedCategories(lastCat.split(',').map(c => c.trim()).filter(Boolean));
       }
       
       if (provs.length > 0) {
@@ -174,9 +173,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
         const draft = JSON.parse(savedStateStr);
         setName(draft.name || '');
         setWebsiteId(draft.websiteId || '');
-        setLanguage(draft.language || 'English');
-        setCountry(draft.country || 'United States');
-        setCategory(draft.category || '');
+        setSelectedCategories(draft.selectedCategories || []);
         setKeywords(draft.keywords || []);
         setPromptTemplate(draft.promptTemplate || '');
         setProviderId(draft.providerId || '');
@@ -206,7 +203,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     if (!openAdd) return;
     const interval = setInterval(() => {
       const draft = {
-        name, websiteId, language, country, category, keywords,
+        name, websiteId, selectedCategories, keywords,
         promptTemplate, providerId, model, imageGeneration, imageStyle,
         imageSize, articleLength, publishingMode, seoPlugin, isScheduled,
         scheduleDate, scheduleTime, scheduleFrequency, step, editingTaskId
@@ -215,7 +212,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     }, 10000);
     return () => clearInterval(interval);
   }, [
-    openAdd, name, websiteId, language, country, category, keywords,
+    openAdd, name, websiteId, selectedCategories, keywords,
     promptTemplate, providerId, model, imageGeneration, imageStyle,
     imageSize, articleLength, publishingMode, seoPlugin, isScheduled,
     scheduleDate, scheduleTime, scheduleFrequency, step, editingTaskId
@@ -363,8 +360,8 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       const payload = {
         name: task.name,
         websiteId: task.website_id,
-        language: task.language,
-        country: task.country,
+        language: 'en',
+        country: 'us',
         category: task.category,
         keywords: JSON.parse(task.keywords || '[]'),
         promptTemplate: task.prompt_template,
@@ -414,9 +411,8 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     setEditingTaskId(task.id);
     setName(task.name);
     setWebsiteId(task.website_id.toString());
-    setLanguage(task.language || 'English');
-    setCountry(task.country || 'United States');
-    setCategory(task.category || '');
+    setSelectedCategories(task.category ? task.category.split(',').map((c: string) => c.trim()).filter(Boolean) : []);
+    setCategoryQuery('');
     setKeywords(JSON.parse(task.keywords || '[]'));
     setPromptTemplate(task.prompt_template);
     setProviderId(task.provider_id.toString());
@@ -460,9 +456,8 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     setStep(1);
     setName('');
     if (websites.length > 0) setWebsiteId(websites[0].id.toString());
-    setLanguage('English');
-    setCountry('United States');
-    setCategory('');
+    setSelectedCategories([]);
+    setCategoryQuery('');
     setKeywords([]);
     setPromptTemplate("Write an exhaustive, SEO optimized blog post about: {keyword}. Include H2/H3 subheadings, lists, and a table if helpful. Target length is {length}.");
     if (providers.length > 0) setProviderId(providers[0].id.toString());
@@ -543,9 +538,9 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     const taskPayload = {
       name,
       websiteId: parseInt(websiteId, 10),
-      language,
-      country,
-      category,
+      language: 'en',
+      country: 'us',
+      category: selectedCategories.join(', '),
       keywords,
       promptTemplate,
       providerId: parseInt(providerId, 10),
@@ -576,7 +571,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
         const res = await api.createTask(taskPayload);
         if (res.success) {
           await api.updateSetting('last_selected_website', websiteId);
-          await api.updateSetting('last_selected_category', category);
+          await api.updateSetting('last_selected_category', selectedCategories.join(', '));
 
           if (!isScheduled) {
             try {
@@ -624,43 +619,32 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                 ))}
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Target Language</label>
-                <Select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                  <option value="English">English</option>
-                  <option value="Spanish">Spanish</option>
-                  <option value="French">French</option>
-                  <option value="German">German</option>
-                  <option value="Italian">Italian</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Target Country</label>
-                <Input 
-                  placeholder="United States" 
-                  value={country} 
-                  onChange={(e) => setCountry(e.target.value)} 
-                  className="bg-zinc-950 border-zinc-800"
-                />
-              </div>
-            </div>
+            
             <div className="space-y-1.5 relative">
               <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex justify-between">
-                <span>Category Target</span>
+                <span>Category Target(s)</span>
                 {fetchingCategories && <Loader2 className="h-3 w-3 animate-spin text-indigo-400" />}
               </label>
               
               <div className="relative">
                 <Input 
-                  placeholder={fetchingCategories ? "Fetching categories from WordPress..." : "Search categories or type custom..."}
-                  value={category} 
+                  placeholder={fetchingCategories ? "Fetching categories from WordPress..." : "Search categories or type custom & press Enter..."}
+                  value={categoryQuery} 
                   onChange={(e) => {
-                    setCategory(e.target.value);
+                    setCategoryQuery(e.target.value);
                     setDropdownOpen(true);
                   }}
                   onFocus={() => setDropdownOpen(true)}
                   onBlur={() => setTimeout(() => setDropdownOpen(false), 250)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (categoryQuery.trim()) {
+                        setSelectedCategories(prev => Array.from(new Set([...prev, categoryQuery.trim()])));
+                        setCategoryQuery('');
+                      }
+                    }
+                  }}
                   className="bg-zinc-950 border-zinc-800 pr-8 text-xs"
                 />
               </div>
@@ -668,25 +652,45 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
               {dropdownOpen && categories.length > 0 && (
                 <div className="absolute z-[100] w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl max-h-40 overflow-y-auto">
                   {categories
-                    .filter(cat => cat.name.toLowerCase().includes(category.toLowerCase()))
+                    .filter(cat => cat.name.toLowerCase().includes(categoryQuery.toLowerCase()))
                     .map(cat => (
                       <div
                         key={cat.id}
                         onMouseDown={() => {
-                          setCategory(cat.name);
+                          setSelectedCategories(prev => Array.from(new Set([...prev, cat.name])));
+                          setCategoryQuery('');
                           setDropdownOpen(false);
                         }}
-                        className="px-3 py-2 text-xs text-zinc-300 hover:bg-indigo-600 hover:text-white cursor-pointer transition-colors"
+                        className="px-3 py-2 text-xs text-zinc-300 hover:bg-indigo-600 hover:text-white cursor-pointer transition-colors flex justify-between items-center"
                       >
-                        {cat.name}
+                        <span>{cat.name}</span>
+                        {selectedCategories.includes(cat.name) && <span className="text-[10px] text-emerald-400 font-bold">✓ Selected</span>}
                       </div>
                     ))
                   }
-                  {categories.filter(cat => cat.name.toLowerCase().includes(category.toLowerCase())).length === 0 && (
+                  {categories.filter(cat => cat.name.toLowerCase().includes(categoryQuery.toLowerCase())).length === 0 && (
                     <div className="px-3 py-2 text-[11px] text-zinc-500 italic">
-                      No matching WordPress categories. Type custom to create.
+                      No matching WordPress categories. Press Enter to add custom.
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Badges for selected categories */}
+              {selectedCategories.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {selectedCategories.map((cat, idx) => (
+                    <Badge key={idx} variant="secondary" className="flex items-center space-x-1 text-[10px] py-0.5 px-2 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                      <span>{cat}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setSelectedCategories(prev => prev.filter(c => c !== cat))} 
+                        className="text-zinc-500 hover:text-zinc-300 font-bold ml-1"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
                 </div>
               )}
             </div>
@@ -764,14 +768,14 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Custom System Prompt</label>
+              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Custom Prompt Template</label>
               <textarea
                 value={promptTemplate}
                 onChange={(e) => setPromptTemplate(e.target.value)}
                 rows={4}
                 className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring bg-zinc-950 text-zinc-100"
               />
-              <p className="text-[10px] text-zinc-500">Variables: {'{keyword}'}, {'{language}'}, {'{category}'}, {'{length}'}</p>
+              <p className="text-[10px] text-zinc-500">Variables: {'{keyword}'}, {'{category}'}, {'{length}'}</p>
             </div>
 
             <div className="space-y-1.5">
