@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*' # Trigger build on version tag pushes (e.g. v1.0.0)
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Build & Package Desktop Client
@@ -23,6 +26,10 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+
+      - name: Install Python setuptools (Required for SQLite compilation on macOS)
+        if: matrix.os == 'macos-latest'
+        run: pip3 install setuptools
 
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
