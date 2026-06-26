@@ -67,8 +67,8 @@
       ],
       "publish": {
         "provider": "github",
-        "owner": "stackorbitai",
-        "repo": "bulk-writer-pro-releases",
+        "owner": "StackOrbitAI",
+        "repo": "stackorbitai-bulk-writer-pro",
         "private": false
       }
     },
@@ -78,8 +78,8 @@
       ],
       "publish": {
         "provider": "github",
-        "owner": "stackorbitai",
-        "repo": "bulk-writer-pro-releases",
+        "owner": "StackOrbitAI",
+        "repo": "stackorbitai-bulk-writer-pro",
         "private": false
       }
     },
