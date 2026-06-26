@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+temp_images/
+*.log
+*.db
+*.db-journal
+.env
+.security.key
+.DS_Store
+.vscode/
+.idea/
+out/
+package-lock.json.tmp

@@ -1,0 +1,38 @@
+name: Build and Release StackOrbitAI Bulk Writer Pro
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger build on version tag pushes (e.g. v1.0.0)
+
+jobs:
+  release:
+    name: Build & Package Desktop Client
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Compile Code Assets (build React & main processes)
+        run: npm run build
+
+      - name: Package App and Publish Release Artifacts
+        env:
+          # Token required to push releases to the private GitHub repository
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx electron-builder --publish always
