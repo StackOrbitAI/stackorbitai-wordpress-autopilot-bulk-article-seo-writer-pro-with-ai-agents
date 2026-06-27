@@ -100,6 +100,28 @@ Packaged installer output files will be created in the `release/` directory.
 
 ---
 
+## 🍎 macOS Installation & Security Setup (Gatekeeper Bypass)
+
+Since the app is not signed/notarized with an official Apple Developer account, macOS Gatekeeper will block it from launching or auto-updating by default. Follow these instructions to run the application:
+
+### 1. Drag the App to Applications Folder
+* Download the `.dmg` installer for your architecture.
+* Open the `.dmg` and **drag** the `StackOrbitAI Bulk Writer Pro` app icon directly into your `/Applications` folder.
+* **Important**: Do not run the app directly from the mounted DMG volume, as this makes it read-only and prevents auto-updates from working.
+
+### 2. Bypass Gatekeeper "Developer Cannot Be Verified" Warning
+* Open Finder, navigate to the **Applications** folder.
+* **Right-click (or Control-click)** the `StackOrbitAI Bulk Writer Pro` app icon and choose **Open**.
+* A popup warning will appear. Click **Open** to confirm. macOS will save this exception, allowing the app to open by double-clicking in the future.
+
+### 3. Bypass via Terminal (Alternative)
+* Open the **Terminal** app on your Mac and execute the following command:
+  ```bash
+  xattr -d com.apple.quarantine "/Applications/StackOrbitAI Bulk Writer Pro.app"
+  ```
+
+---
+
 ## ⚙️ Integrations & Setup Details
 
 ### 🔑 WordPress Application Passwords
