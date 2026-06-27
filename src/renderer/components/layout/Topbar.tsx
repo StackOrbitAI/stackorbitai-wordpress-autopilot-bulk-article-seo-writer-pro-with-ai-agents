@@ -93,6 +93,12 @@ const Topbar: React.FC<TopbarProps> = ({ activeTab, theme, setTheme }) => {
   const handleInstallUpdate = async () => {
     const api = (window as any).api;
     if (!api) return;
+    
+    const isMac = navigator.userAgent.toLowerCase().includes('mac');
+    if (isMac) {
+      alert("macOS Update Notice:\n\n1. Make sure you have copied the app to your /Applications folder and are not running it directly from the DMG file.\n2. Since this app is not code-signed, macOS security may block auto-installation. If the app does not restart updated, please download the latest .dmg from GitHub and replace the app manually.");
+    }
+    
     await api.installUpdate();
   };
 
