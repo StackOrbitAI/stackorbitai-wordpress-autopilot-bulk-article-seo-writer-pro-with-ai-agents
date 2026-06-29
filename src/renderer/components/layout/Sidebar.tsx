@@ -34,6 +34,15 @@ interface ChangelogEntry {
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.0.58',
+    date: '2026-06-29',
+    type: 'feature',
+    changes: [
+      'Reverted application product name to stackorbitai-bulk-writer-pro to natively load settings and tasks without folder shifts.',
+      'Renamed GitHub repository to stackorbitai-wordpress-autopilot-bulk-article-seo-writer-pro-with-ai-agents.'
+    ]
+  },
+  {
     version: '1.0.57',
     date: '2026-06-29',
     type: 'feature',

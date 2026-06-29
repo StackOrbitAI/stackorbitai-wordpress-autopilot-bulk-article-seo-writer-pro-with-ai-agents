@@ -1,6 +1,6 @@
 {
-  "name": "wordpress-autopilot-bulk-article-seo-writer-pro-with-ai-agents-wordpress",
-  "version": "1.0.57",
+  "name": "stackorbitai-bulk-writer-pro",
+  "version": "1.0.58",
   "description": "WordPress Autopilot Bulk Article SEO Writer Pro with AI Agents for WordPress - Automatically write, schedule, and optimize posts in bulk.",
   "main": "dist/main/index.js",
   "author": "StackOrbitAI <support@stackorbitai.com>",
@@ -52,7 +52,7 @@
   "build": {
     "appId": "com.stackorbitai.bulk-writer-pro",
     "npmRebuild": false,
-    "productName": "WordPress Autopilot Bulk Article SEO Writer Pro",
+    "productName": "stackorbitai-bulk-writer-pro",
     "icon": "build/icon.png",
     "directories": {
       "output": "release"
