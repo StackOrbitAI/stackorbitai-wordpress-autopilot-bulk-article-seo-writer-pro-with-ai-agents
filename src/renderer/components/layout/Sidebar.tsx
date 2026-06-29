@@ -34,6 +34,14 @@ interface ChangelogEntry {
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.0.57',
+    date: '2026-06-29',
+    type: 'feature',
+    changes: [
+      'Implemented automatic multi-folder database migration. Your settings, API keys, and tasks are automatically imported from previous folder iterations (stackorbitai-bulk-writer-pro or wordpress-autopilot-bulk-article-writer-pro).'
+    ]
+  },
+  {
     version: '1.0.56',
     date: '2026-06-29',
     type: 'fix',

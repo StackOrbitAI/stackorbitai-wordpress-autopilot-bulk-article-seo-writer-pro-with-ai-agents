@@ -33,7 +33,7 @@ export function initDatabase(): Promise<sqlite3.Database> {
 
     const dbPath = getDatabasePath();
     
-    // Attempt automatic database migration from old folder if it exists and new database doesn't
+    // Attempt automatic database migration from old folders if it exists and new database doesn't
     if (!fs.existsSync(dbPath)) {
       try {
         let userDataPath: string;
@@ -44,21 +44,44 @@ export function initDatabase(): Promise<sqlite3.Database> {
         }
         
         const parentDir = path.dirname(userDataPath);
-        const oldDbPath = path.join(parentDir, 'stackorbitai-bulk-writer-pro', 'database', 'stackorbit_writer.db');
-        const oldKeyPath = path.join(parentDir, 'stackorbitai-bulk-writer-pro', '.security.key');
-        const newKeyPath = path.join(userDataPath, '.security.key');
         
-        // Migrate security key first (needed for database decryption)
-        if (fs.existsSync(oldKeyPath)) {
-          console.log(`[Security] Migrating legacy security key from: ${oldKeyPath} to: ${newKeyPath}`);
-          fs.copyFileSync(oldKeyPath, newKeyPath);
-          console.log('[Security] Legacy security key migrated successfully!');
+        // Define candidates in order of priority (most recent first)
+        const legacyFolders = [
+          'wordpress-autopilot-bulk-article-writer-pro',
+          'stackorbitai-bulk-writer-pro'
+        ];
+        
+        let migrated = false;
+        
+        for (const folder of legacyFolders) {
+          const oldDbPath = path.join(parentDir, folder, 'database', 'stackorbit_writer.db');
+          const oldKeyPath = path.join(parentDir, folder, '.security.key');
+          const newKeyPath = path.join(userDataPath, '.security.key');
+          
+          if (fs.existsSync(oldDbPath)) {
+            console.log(`[Database] Found legacy data in: ${folder}. Starting migration...`);
+            
+            // Migrate security key first (needed for database decryption)
+            if (fs.existsSync(oldKeyPath)) {
+              console.log(`[Security] Migrating legacy security key from: ${oldKeyPath} to: ${newKeyPath}`);
+              fs.copyFileSync(oldKeyPath, newKeyPath);
+              console.log('[Security] Legacy security key migrated successfully!');
+            }
+            
+            console.log(`[Database] Migrating legacy database from: ${oldDbPath} to: ${dbPath}`);
+            const newDbDir = path.dirname(dbPath);
+            if (!fs.existsSync(newDbDir)) {
+              fs.mkdirSync(newDbDir, { recursive: true });
+            }
+            fs.copyFileSync(oldDbPath, dbPath);
+            console.log('[Database] Legacy database migration completed successfully!');
+            migrated = true;
+            break;
+          }
         }
-
-        if (fs.existsSync(oldDbPath)) {
-          console.log(`[Database] Migrating legacy database from: ${oldDbPath} to: ${dbPath}`);
-          fs.copyFileSync(oldDbPath, dbPath);
-          console.log('[Database] Legacy database migration completed successfully!');
+        
+        if (!migrated) {
+          console.log('[Database] No legacy database found for migration. Starting fresh.');
         }
       } catch (migrateErr: any) {
         console.error('[Database] Automatic legacy database migration failed:', migrateErr.message);
