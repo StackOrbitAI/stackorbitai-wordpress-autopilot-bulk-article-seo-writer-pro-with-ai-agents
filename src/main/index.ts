@@ -32,7 +32,7 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 768,
-    title: 'StackOrbitAI Bulk Writer Pro',
+    title: 'WordPress Autopilot Bulk Article SEO Writer Pro (with AI Agents)',
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -1,6 +1,6 @@
 {
   "name": "wordpress-autopilot-bulk-article-writer-pro",
-  "version": "1.0.52",
+  "version": "1.0.53",
   "description": "StackOrbitAI Bulk Writer Pro - Enterprise AI Bulk Blog Writer",
   "main": "dist/main/index.js",
   "author": "StackOrbitAI <support@stackorbitai.com>",
@@ -52,7 +52,7 @@
   "build": {
     "appId": "com.stackorbitai.bulk-writer-pro",
     "npmRebuild": false,
-    "productName": "StackOrbitAI Bulk Writer Pro",
+    "productName": "WordPress Autopilot Bulk Article SEO Writer Pro",
     "icon": "build/icon.png",
     "directories": {
       "output": "release"

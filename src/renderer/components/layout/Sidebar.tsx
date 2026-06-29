@@ -11,7 +11,9 @@ import {
   Sparkles,
   Zap,
   CheckCircle2,
-  Info
+  Info,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -31,6 +33,16 @@ interface ChangelogEntry {
 }
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+    version: '1.0.53',
+    date: '2026-06-29',
+    type: 'major',
+    changes: [
+      'Added a collapsible navigation sidebar toggle to allow full content width visibility on resize.',
+      'Re-branded application to WordPress Autopilot Bulk Article SEO Writer Pro (with AI Agents).',
+      'Optimized viewport responsiveness to prevent hiding options when minimizing browser/app window sizes.'
+    ]
+  },
   {
     version: '1.0.52',
     date: '2026-06-29',
@@ -116,6 +128,15 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isActivated, onLogout }) => {
   const [showChangelog, setShowChangelog] = useState(false);
   const [version, setVersion] = useState('1.0.49');
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  });
+
+  const toggleCollapse = () => {
+    const newVal = !isCollapsed;
+    setIsCollapsed(newVal);
+    localStorage.setItem('sidebar_collapsed', String(newVal));
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, disabled: !isActivated },
@@ -144,24 +165,44 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isActivated,
   }, []);
 
   return (
-    <aside className="w-64 border-r border-zinc-800 bg-zinc-950 flex flex-col h-full select-none relative">
+    <aside className={cn(
+      "border-r border-zinc-800 bg-zinc-950 flex flex-col h-full select-none relative transition-all duration-300 ease-in-out shrink-0",
+      isCollapsed ? "w-20" : "w-64"
+    )}>
       {/* Brand Logo Header */}
-      <div className="h-16 flex items-center px-6 border-b border-zinc-800">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold font-outfit shadow-md">
-            S
+      <div className={cn(
+        "h-16 flex items-center border-b border-zinc-800 relative",
+        isCollapsed ? "justify-center px-2" : "px-6"
+      )}>
+        <div className="flex items-center space-x-2.5 overflow-hidden">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold font-outfit shadow-md shrink-0">
+            W
           </div>
-          <div>
-            <h1 className="text-md font-bold font-outfit tracking-wide bg-gradient-to-r from-zinc-50 to-zinc-300 bg-clip-text text-transparent">
-              StackOrbit<span className="text-indigo-400">AI</span>
-            </h1>
-            <p className="text-[10px] text-zinc-500 font-medium">BULK WRITER PRO</p>
-          </div>
+          {!isCollapsed && (
+            <div className="transition-opacity duration-200 py-1">
+              <h1 className="text-[10px] font-bold font-outfit tracking-wide bg-gradient-to-r from-zinc-50 to-zinc-300 bg-clip-text text-transparent leading-tight w-44">
+                WordPress Autopilot Bulk Article SEO Writer Pro
+              </h1>
+              <p className="text-[7.5px] text-indigo-400 font-bold tracking-wider uppercase leading-none mt-0.5">
+                with AI Agents for WordPress
+              </p>
+            </div>
+          )}
         </div>
+
+        {/* Toggle Collapse Button */}
+        <button
+          onClick={toggleCollapse}
+          className={cn(
+            "absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-zinc-200 shadow-md cursor-pointer z-10 hover:bg-zinc-800 transition-colors"
+          )}
+        >
+          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        </button>
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+      <nav className={cn("flex-1 py-6 space-y-1 overflow-y-auto", isCollapsed ? "px-2" : "px-4")}>
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -170,16 +211,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isActivated,
               disabled={item.disabled}
               onClick={() => setActiveTab(item.id)}
               className={cn(
-                "flex items-center space-x-3 w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 outline-none text-left",
+                "flex items-center w-full rounded-lg text-sm font-medium transition-all duration-200 outline-none text-left",
+                isCollapsed ? "justify-center p-2.5" : "space-x-3 px-4 py-2.5",
                 item.disabled && "opacity-40 cursor-not-allowed",
                 !item.disabled && activeTab === item.id 
                   ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
                   : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent"
               )}
+              title={isCollapsed ? item.label : undefined}
             >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
-              {item.id === 'queue' && activeTab !== 'queue' && (
+              <Icon className="h-4 w-4 shrink-0" />
+              {!isCollapsed && <span className="transition-opacity duration-200">{item.label}</span>}
+              {!isCollapsed && item.id === 'queue' && activeTab !== 'queue' && (
                 <span className="ml-auto w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
               )}
             </button>
@@ -188,15 +231,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isActivated,
       </nav>
 
       {/* Bottom User Area */}
-      <div className="p-4 border-t border-zinc-800 text-center flex flex-col items-center justify-center space-y-1 bg-zinc-950/20">
-        <span className="text-[10px] text-zinc-500 font-semibold tracking-widest uppercase">
-          Open Source Edition
-        </span>
+      <div className={cn(
+        "p-4 border-t border-zinc-800 text-center flex flex-col items-center justify-center bg-zinc-950/20",
+        isCollapsed ? "space-y-1 px-1" : "space-y-1"
+      )}>
+        {!isCollapsed && (
+          <span className="text-[10px] text-zinc-500 font-semibold tracking-widest uppercase truncate w-full">
+            Open Source Edition
+          </span>
+        )}
         <button 
           onClick={() => setShowChangelog(true)}
-          className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium underline cursor-pointer transition-colors duration-200 outline-none"
+          className={cn(
+            "text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer transition-colors duration-200 outline-none",
+            isCollapsed ? "text-[10px]" : "text-[11px] underline"
+          )}
         >
-          v{version} (Changelog)
+          {isCollapsed ? `v${version.substring(0, 5)}` : `v${version} (Changelog)`}
         </button>
       </div>
 
@@ -216,7 +267,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isActivated,
                 <div className="flex items-center space-x-2">
                   <Sparkles className="h-5 w-5 text-indigo-400" />
                   <h3 className="text-base font-bold font-outfit text-zinc-100">
-                    What's New in StackOrbitAI
+                    What's New in WordPress Autopilot SEO Writer
                   </h3>
                 </div>
                 <button 

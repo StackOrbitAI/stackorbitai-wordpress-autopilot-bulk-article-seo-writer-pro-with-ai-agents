@@ -82,7 +82,7 @@ const App: React.FC = () => {
         <Topbar activeTab={activeTab} theme={theme} setTheme={setTheme} />
 
         {/* View Pages Router */}
-        <main className="flex-1 overflow-hidden flex flex-col">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
           {activeTab === 'dashboard' && <Dashboard onNavigate={(tab) => handleNavigate(tab)} />}
           {activeTab === 'websites' && <Websites />}
           {activeTab === 'providers' && <Providers />}
