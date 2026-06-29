@@ -110,6 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isActivated,
     { id: 'websites', label: 'WordPress Sites', icon: Globe, disabled: !isActivated },
     { id: 'providers', label: 'AI Providers', icon: KeyRound, disabled: !isActivated },
     { id: 'tasks', label: 'Bulk Tasks', icon: FileEdit, disabled: !isActivated },
+    { id: 'agents', label: 'AI Agents', icon: Sparkles, disabled: !isActivated },
     { id: 'queue', label: 'Task Monitor', icon: PlaySquare, disabled: !isActivated },
     { id: 'history', label: 'Post History', icon: History, disabled: !isActivated },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, disabled: !isActivated }

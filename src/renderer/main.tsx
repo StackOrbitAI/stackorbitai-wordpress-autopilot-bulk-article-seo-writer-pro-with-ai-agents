@@ -9,6 +9,7 @@ import Tasks from './pages/Tasks';
 import Queue from './pages/Queue';
 import History from './pages/History';
 import Settings from './pages/Settings';
+import Agents from './pages/Agents';
 import './index.css';
 
 const App: React.FC = () => {
@@ -86,6 +87,7 @@ const App: React.FC = () => {
           {activeTab === 'websites' && <Websites />}
           {activeTab === 'providers' && <Providers />}
           {activeTab === 'tasks' && <Tasks onNavigate={handleNavigate} />}
+          {activeTab === 'agents' && <Agents />}
           {activeTab === 'queue' && <Queue selectedTaskId={navArgs} />}
           {activeTab === 'history' && <History />}
           {activeTab === 'settings' && <Settings />}

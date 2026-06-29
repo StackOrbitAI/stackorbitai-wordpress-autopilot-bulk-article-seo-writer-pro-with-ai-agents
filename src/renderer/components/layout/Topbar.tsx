@@ -23,6 +23,7 @@ const Topbar: React.FC<TopbarProps> = ({ activeTab, theme, setTheme }) => {
     websites: 'WordPress Website Integrations',
     providers: 'AI Provider Configuration',
     tasks: 'Bulk Writing Tasks',
+    agents: 'WordPress AI Optimization Agents',
     queue: 'Task monitor & Queue system',
     history: 'Published Post History',
     settings: 'Global Settings'
