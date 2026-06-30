@@ -15,31 +15,26 @@ jobs:
   release:
     name: Build & Package Desktop Client
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-2022
-            container: null
           - os: macos-latest
-            container: null
           - os: ubuntu-latest
-            container: null
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup Node.js Environment
-        if: matrix.container == null
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
       - name: Update NPM to latest (Fixes node-gyp compatibility issues)
-        if: matrix.container == null
         run: npm install -g npm@latest
 
       - name: Install System Dependencies (Linux)
@@ -62,19 +57,18 @@ jobs:
       - name: Compile Code Assets (build React & main processes)
         run: npm run build
 
-      - name: Package App and Publish Release Artifacts
+      - name: Package App and Upload Release Artifacts
         env:
-          # GITHUB_TOKEN has write access to the same repo for releases
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npx electron-builder --publish always
 
   publish:
-    name: Publish Release
+    name: Publish Release (Mark as non-draft after all platforms build)
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - name: Publish Draft Release
+      - name: Mark Release as Published
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

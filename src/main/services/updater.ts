@@ -59,7 +59,22 @@ export function setupAutoUpdater(mainWindow: BrowserWindow) {
   });
 
   autoUpdater.on('error', (err) => {
-    sendUpdateStatus('updater-error', { message: err.message });
+    const msg = err.message || '';
+    // Suppress non-critical errors:
+    // - "Cannot find latest.yml" means build is still in progress or release not yet published
+    // - HttpError 404 means the release artifact isn't uploaded yet
+    const isBuildInProgress =
+      msg.includes('latest.yml') ||
+      msg.includes('HttpError: 404') ||
+      msg.includes('404') ||
+      msg.includes('Cannot find latest');
+    
+    if (isBuildInProgress) {
+      console.warn('[Updater] Update check skipped - release still being published:', msg);
+      return; // Silently ignore, don't show error to user
+    }
+    
+    sendUpdateStatus('updater-error', { message: msg });
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
