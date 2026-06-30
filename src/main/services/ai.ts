@@ -442,7 +442,8 @@ async function saveBase64Image(b64Data: string): Promise<string> {
     fs.mkdirSync(downloadsDir, { recursive: true });
   }
 
-  const filename = `img_${Date.now()}.png`;
+  const randomSuffix = Math.random().toString(36).substring(2, 10);
+  const filename = `img_${Date.now()}_${randomSuffix}.png`;
   const localPath = path.join(downloadsDir, filename);
 
   const buffer = Buffer.from(b64Data, 'base64');
@@ -464,7 +465,8 @@ async function downloadImage(imageUrl: string): Promise<string> {
     fs.mkdirSync(downloadsDir, { recursive: true });
   }
 
-  const filename = `img_${Date.now()}.png`;
+  const randomSuffix = Math.random().toString(36).substring(2, 10);
+  const filename = `img_${Date.now()}_${randomSuffix}.png`;
   const localPath = path.join(downloadsDir, filename);
 
   const response = await axios({
@@ -480,4 +482,200 @@ async function downloadImage(imageUrl: string): Promise<string> {
     writer.on('finish', () => resolve(localPath));
     writer.on('error', (err) => reject(err));
   });
+}
+
+export interface MultimodalImage {
+  mimeType: string;
+  base64: string;
+}
+
+export async function generateMultimodalAnalysis(
+  config: AIProviderConfig,
+  model: string,
+  prompt: string,
+  images: MultimodalImage[],
+  systemInstruction?: string
+): Promise<GenerationResult> {
+  const sysPrompt = systemInstruction || 
+    "You are a precise, analytical assistant that visualizes and chooses the best image candidate matching a topic.";
+  
+  const provider = config.provider.toLowerCase();
+
+  switch (provider) {
+    case 'openai':
+    case 'openrouter':
+    case 'custom':
+      return callOpenAIMultimodal(config, model, prompt, images, sysPrompt);
+    case 'gemini':
+      return callGeminiMultimodal(config, model, prompt, images, sysPrompt);
+    case 'claude':
+      return callClaudeMultimodal(config, model, prompt, images, sysPrompt);
+    default:
+      throw new Error(`Unsupported AI provider for vision analysis: ${config.provider}`);
+  }
+}
+
+async function callOpenAIMultimodal(
+  config: AIProviderConfig,
+  model: string,
+  prompt: string,
+  images: MultimodalImage[],
+  systemPrompt: string
+): Promise<GenerationResult> {
+  let defaultUrl = 'https://api.openai.com/v1';
+  if (config.provider === 'openrouter') {
+    defaultUrl = 'https://openrouter.ai/api/v1';
+  }
+  const url = `${config.baseUrl || defaultUrl}/chat/completions`;
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${config.apiKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  if (config.organization) {
+    headers['OpenAI-Organization'] = config.organization;
+  }
+
+  if (config.provider === 'openrouter') {
+    headers['HTTP-Referer'] = 'https://stackorbitai.com';
+    headers['X-Title'] = 'StackOrbitAI Bulk Writer Pro';
+  }
+
+  const contentParts: any[] = [{ type: 'text', text: prompt }];
+  for (const img of images) {
+    contentParts.push({
+      type: 'image_url',
+      image_url: {
+        url: `data:${img.mimeType};base64,${img.base64}`
+      }
+    });
+  }
+
+  const response = await axios.post(url, {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: contentParts }
+    ],
+    temperature: 0.2
+  }, { headers, timeout: 60000 });
+
+  const choice = response.data?.choices?.[0]?.message?.content || '';
+  const usage = response.data?.usage || {
+    prompt_tokens: countCharsToTokens(prompt + systemPrompt),
+    completion_tokens: countCharsToTokens(choice)
+  };
+
+  const promptTokens = usage.prompt_tokens;
+  const completionTokens = usage.completion_tokens;
+
+  return {
+    text: choice,
+    promptTokens,
+    completionTokens,
+    estimatedCost: estimateCost(model, promptTokens, completionTokens)
+  };
+}
+
+async function callGeminiMultimodal(
+  config: AIProviderConfig,
+  model: string,
+  prompt: string,
+  images: MultimodalImage[],
+  systemPrompt: string
+): Promise<GenerationResult> {
+  const apiKey = config.apiKey;
+  const geminiModel = model || 'gemini-1.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+
+  const parts: any[] = [{ text: `${systemPrompt}\n\nUser Input: ${prompt}` }];
+  for (const img of images) {
+    parts.push({
+      inlineData: {
+        mimeType: img.mimeType,
+        data: img.base64
+      }
+    });
+  }
+
+  const requestBody = {
+    contents: [
+      {
+        role: 'user',
+        parts: parts
+      }
+    ],
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 100
+    }
+  };
+
+  const response = await axios.post(url, requestBody, {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 60000
+  });
+
+  const responseParts = response.data?.candidates?.[0]?.content?.parts || [];
+  const choice = responseParts.map((p: any) => p.text).join('') || '';
+
+  const promptTokens = response.data?.usageMetadata?.promptTokenCount || countCharsToTokens(prompt + systemPrompt);
+  const completionTokens = response.data?.usageMetadata?.candidatesTokenCount || countCharsToTokens(choice);
+
+  return {
+    text: choice,
+    promptTokens,
+    completionTokens,
+    estimatedCost: estimateCost(geminiModel, promptTokens, completionTokens)
+  };
+}
+
+async function callClaudeMultimodal(
+  config: AIProviderConfig,
+  model: string,
+  prompt: string,
+  images: MultimodalImage[],
+  systemPrompt: string
+): Promise<GenerationResult> {
+  const url = 'https://api.anthropic.com/v1/messages';
+  const headers = {
+    'x-api-key': config.apiKey,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json'
+  };
+
+  const contentParts: any[] = [];
+  for (const img of images) {
+    contentParts.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: img.mimeType,
+        data: img.base64
+      }
+    });
+  }
+  contentParts.push({ type: 'text', text: prompt });
+
+  const response = await axios.post(url, {
+    model: model || 'claude-3-5-sonnet-latest',
+    system: systemPrompt,
+    messages: [{ role: 'user', content: contentParts }],
+    max_tokens: 100,
+    temperature: 0.2
+  }, { headers, timeout: 60000 });
+
+  const responseParts = response.data?.content || [];
+  const choice = responseParts.map((p: any) => p.text).join('') || '';
+
+  const promptTokens = response.data?.usage?.input_tokens || countCharsToTokens(prompt + systemPrompt);
+  const completionTokens = response.data?.usage?.output_tokens || countCharsToTokens(choice);
+
+  return {
+    text: choice,
+    promptTokens,
+    completionTokens,
+    estimatedCost: estimateCost(model, promptTokens, completionTokens)
+  };
 }
