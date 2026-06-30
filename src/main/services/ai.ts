@@ -272,14 +272,22 @@ export async function generateRunwareImage(
 
   let width = 1024;
   let height = 768;
-  if (size === '1200x628' || size === '1200x675') {
+  if (size === '1200x628') {
     width = 1200;
     height = 628;
+  } else if (size === '1200x675') {
+    width = 1200;
+    height = 672; // Round to multiple of 16/64
   } else if (size.includes('x')) {
     const parts = size.split('x');
     width = parseInt(parts[0], 10) || 1024;
     height = parseInt(parts[1], 10) || 768;
   }
+
+  // Stable Diffusion and Flux models require dimensions to be multiples of 64.
+  // We automatically round to the nearest multiple of 64 to ensure API compatibility.
+  width = Math.round(width / 64) * 64;
+  height = Math.round(height / 64) * 64;
 
   const headers = {
     'Content-Type': 'application/json'
