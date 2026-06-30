@@ -179,6 +179,16 @@ async function runMigrations(): Promise<void> {
     }
   }
 
+  // Custom migration for google_folder_id column in tasks table
+  try {
+    await dbRun(`ALTER TABLE tasks ADD COLUMN google_folder_id TEXT`);
+    console.log('[Database] Migration: Added google_folder_id column to tasks table successfully.');
+  } catch (err: any) {
+    if (!err.message.includes('duplicate column name') && !err.message.includes('already exists')) {
+      console.warn('[Database] Migration warning (adding google_folder_id column):', err.message);
+    }
+  }
+
   // Custom migration for insert_inline_images column in tasks table
   try {
     await dbRun(`ALTER TABLE tasks ADD COLUMN insert_inline_images INTEGER DEFAULT 0`);

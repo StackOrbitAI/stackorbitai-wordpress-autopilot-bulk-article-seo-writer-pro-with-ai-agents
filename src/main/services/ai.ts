@@ -48,6 +48,23 @@ function countCharsToTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+async function postWithRetry(url: string, data: any, config: any, maxRetries = 3): Promise<any> {
+  let delay = 2000;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await axios.post(url, data, config);
+    } catch (err: any) {
+      if (err.response?.status === 429 && attempt < maxRetries) {
+        console.warn(`[AI API Rate Limit] Hit 429 Too Many Requests. Retrying in ${delay}ms... (Attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 /**
  * Main function to generate SEO articles with specific templates and guidelines.
  */
@@ -106,7 +123,7 @@ async function callOpenAICompatible(
     headers['X-Title'] = 'StackOrbitAI Bulk Writer Pro';
   }
 
-  const response = await axios.post(url, {
+  const response = await postWithRetry(url, {
     model: model,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -158,7 +175,7 @@ async function callGemini(
     }
   };
 
-  const response = await axios.post(url, requestBody, {
+  const response = await postWithRetry(url, requestBody, {
     headers: { 'Content-Type': 'application/json' },
     timeout: 120000
   });
@@ -194,7 +211,7 @@ async function callClaude(
     'content-type': 'application/json'
   };
 
-  const response = await axios.post(url, {
+  const response = await postWithRetry(url, {
     model: model || 'claude-3-5-sonnet-latest',
     system: systemPrompt,
     messages: [{ role: 'user', content: prompt }],

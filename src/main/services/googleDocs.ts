@@ -93,7 +93,7 @@ class GoogleDocsService {
           prompt: 'consent',
           scope: [
             'https://www.googleapis.com/auth/documents',
-            'https://www.googleapis.com/auth/drive.file',
+            'https://www.googleapis.com/auth/drive',
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/userinfo.email'
           ]
@@ -144,7 +144,7 @@ class GoogleDocsService {
         credentials.private_key,
         [
           'https://www.googleapis.com/auth/documents',
-          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/drive',
           'https://www.googleapis.com/auth/spreadsheets'
         ]
       );

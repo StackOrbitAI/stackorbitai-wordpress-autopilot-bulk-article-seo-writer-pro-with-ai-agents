@@ -53,6 +53,7 @@ export const SCHEMA_TABLES = [
     status TEXT DEFAULT 'draft', -- draft, queued, running, paused, completed, failed
     publish_target TEXT DEFAULT 'wordpress',
     google_sheet_url TEXT,
+    google_folder_id TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(website_id) REFERENCES websites(id),

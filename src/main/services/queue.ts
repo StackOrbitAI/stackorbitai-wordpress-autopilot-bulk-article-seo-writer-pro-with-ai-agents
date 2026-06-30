@@ -200,7 +200,7 @@ class QueueManager {
         `SELECT j.*, t.provider_id, t.model, t.website_id, t.language, t.country, t.category, 
                 t.prompt_template, t.image_generation, t.image_style, t.image_size, t.image_model, 
                 t.insert_inline_images, t.article_length, t.publishing_mode, t.seo_settings, 
-                t.publish_target, t.google_sheet_url, t.name AS task_name
+                t.publish_target, t.google_sheet_url, t.google_folder_id, t.name AS task_name
          FROM jobs j
          JOIN tasks t ON j.task_id = t.id
          WHERE j.status = 'waiting' AND t.status = 'running' AND t.id IN (${placeHolders})
@@ -323,7 +323,12 @@ class QueueManager {
           if (targetModel.startsWith('runware') || targetModel.startsWith('civitai') || targetModel.startsWith('cblas')) {
             const rwKeySetting = await dbGet(`SELECT value FROM settings WHERE key = 'runware_api_key'`);
             const rwKey = rwKeySetting?.value || '';
-            if (!rwKey) continue;
+            if (!rwKey) {
+              if (initialMode === 100) {
+                throw new Error('Runware.ai API Key is not configured in Settings. Please add your Runware API Key in settings first.');
+              }
+              continue;
+            }
             imgKeyConfig = { provider: 'custom', apiKey: rwKey };
           } else if (targetModel.startsWith('imagen-')) {
             let geminiKey = '';
@@ -513,7 +518,7 @@ class QueueManager {
           clientSecret: googleSettings.google_client_secret,
           refreshToken: googleSettings.google_refresh_token,
           serviceAccountJson: googleSettings.google_service_account_json,
-          folderId: googleSettings.google_target_folder_id,
+          folderId: job.google_folder_id || googleSettings.google_target_folder_id,
           sharingMode: googleSettings.google_sharing_permissions || 'private'
         };
       }

@@ -22,7 +22,8 @@ import {
   SlidersHorizontal,
   MoreVertical,
   ExternalLink,
-  RotateCcw
+  RotateCcw,
+  Globe
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -130,6 +131,35 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
   const [scheduleFrequency, setScheduleFrequency] = useState('once');
 
   const [formError, setFormError] = useState('');
+
+  // Google Folder Picker States
+  const [googleFolderId, setGoogleFolderId] = useState('');
+  const [openFolderPicker, setOpenFolderPicker] = useState(false);
+  const [folders, setFolders] = useState<{ id: string; name: string }[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+
+  const handleOpenFolderPicker = async () => {
+    const api = (window as any).api;
+    if (!api) return;
+    
+    setLoadingFolders(true);
+    setOpenFolderPicker(true);
+    
+    try {
+      const res = await api.listGoogleFolders();
+      if (res.success && res.folders) {
+        setFolders(res.folders);
+      } else {
+        alert(`Failed to list folders: ${res.error || 'Check credentials'}`);
+        setOpenFolderPicker(false);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+      setOpenFolderPicker(false);
+    } finally {
+      setLoadingFolders(false);
+    }
+  };
 
   // Additional states for Categories & Actions
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
@@ -601,6 +631,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
   const handleEditTask = (task: any) => {
     setEditingTaskId(task.id);
     setName(task.name);
+    setGoogleFolderId(task.google_folder_id || '');
     setWebsiteId(task.website_id.toString());
     const isWp = !task.publish_target || task.publish_target.includes('wordpress');
     const isGoogle = !!(task.publish_target && task.publish_target.includes('googledocs'));
@@ -693,6 +724,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
     setEditingTaskId(null);
     setStep(1);
     setName('');
+    setGoogleFolderId('');
     setCategoryQuery('');
     setKeywords([]);
     setScheduleDate('');
@@ -939,7 +971,8 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       },
       scheduleSettings,
       isScheduled,
-      publishTarget
+      publishTarget,
+      googleFolderId
     };
 
     try {
@@ -1063,6 +1096,31 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                 </div>
               </div>
             </div>
+
+            {publishTargetGoogle && (
+              <div className="space-y-1.5 bg-zinc-900/30 border border-zinc-800 p-3 rounded-lg">
+                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Target Google Drive Folder (Optional)</label>
+                <div className="flex space-x-2">
+                  <Input 
+                    type="text" 
+                    value={googleFolderId} 
+                    onChange={(e) => setGoogleFolderId(e.target.value)} 
+                    placeholder="Enter Folder ID (e.g. 1a2b3c...)" 
+                    className="bg-zinc-950 border-zinc-800 font-mono text-xs flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleOpenFolderPicker}
+                    className="bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 text-xs font-semibold px-3 h-9"
+                  >
+                    Browse
+                  </Button>
+                </div>
+                <p className="text-[9px] text-zinc-500">
+                  Select a specific Drive folder to store generated documents. Defaults to the folder in Global Settings if empty.
+                </p>
+              </div>
+            )}
 
             {publishTargetWp && (
               <div className="space-y-1.5">
@@ -2107,6 +2165,58 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Folder Picker Modal */}
+      {openFolderPicker && (
+        <Dialog open={openFolderPicker} onOpenChange={() => setOpenFolderPicker(false)}>
+          <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto bg-zinc-950 border border-zinc-800 text-zinc-350" onClose={() => setOpenFolderPicker(false)}>
+            <DialogHeader className="border-b border-zinc-850 pb-3">
+              <DialogTitle className="text-zinc-100 font-bold flex items-center">
+                <Globe className="h-4 w-4 text-indigo-400 mr-2" />
+                Select Google Drive Target Folder
+              </DialogTitle>
+              <DialogDescription className="text-xs text-zinc-500 mt-1">
+                Browse folders from your Google Drive integration.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-2">
+              {loadingFolders ? (
+                <p className="text-zinc-500 text-xs py-10 text-center animate-pulse">Scanning Google Drive folders...</p>
+              ) : folders.length === 0 ? (
+                <p className="text-zinc-500 text-xs py-10 text-center italic">No folders found in Google Drive root.</p>
+              ) : (
+                <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
+                  {folders.map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        setGoogleFolderId(f.id);
+                        setOpenFolderPicker(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all bg-zinc-900/40 border border-zinc-850 hover:border-indigo-500/30 hover:bg-zinc-900 text-zinc-300 hover:text-zinc-100 flex items-center justify-between"
+                    >
+                      <span>{f.name}</span>
+                      <span className="text-[9px] font-mono text-zinc-550 truncate max-w-[150px]">{f.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-zinc-800/40">
+              <Button
+                type="button"
+                onClick={() => setOpenFolderPicker(false)}
+                className="bg-zinc-850 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 text-xs font-semibold h-8"
+              >
+                Close Explorer
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
