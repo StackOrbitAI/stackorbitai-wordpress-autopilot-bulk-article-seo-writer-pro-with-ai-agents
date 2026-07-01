@@ -372,7 +372,7 @@ ipcMain.handle('db:createTask', async (_event, taskData: any) => {
       JSON.stringify(uniqueKws), promptTemplate, providerId, model, imageGeneration !== undefined ? imageGeneration : 0,
       imageStyle || 'photorealistic', imageSize || '1200x628', articleLength || 'medium',
       publishingMode || 'draft', JSON.stringify(seoSettings || {}),
-      JSON.stringify(scheduleSettings || {}), status, imageModel || 'gpt-image-2', publishTarget || 'wordpress',
+      JSON.stringify(scheduleSettings || {}), status, imageModel || 'runware:101@1', publishTarget || 'wordpress',
       insertInlineImages ? 1 : 0, googleFolderId || null, googleSharingPermissions || 'private'
     ]
   );
@@ -432,7 +432,7 @@ ipcMain.handle('db:duplicateTask', async (_event, id: number) => {
       JSON.stringify(uniqueKws), original.prompt_template, original.provider_id, original.model,
       original.image_generation, original.image_style, original.image_size, original.article_length,
       original.publishing_mode, original.seo_settings, original.schedule_settings, 
-      original.image_model || 'gpt-image-2', original.publish_target || 'wordpress',
+      original.image_model || 'runware:101@1', original.publish_target || 'wordpress',
       original.insert_inline_images !== undefined ? original.insert_inline_images : 0,
       original.google_folder_id || null, original.google_sharing_permissions || 'private'
     ]

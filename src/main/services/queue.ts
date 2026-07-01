@@ -759,7 +759,7 @@ Keep examples varied, realistic, and directly relevant to the topic, without tem
             job.image_generation,
             job.image_style || '',
             job.image_size || '1200x628',
-            job.image_model || 'gpt-image-2',
+            job.image_model || 'runware:101@1',
             aiConfig,
             provider,
             decryptedApiKey,

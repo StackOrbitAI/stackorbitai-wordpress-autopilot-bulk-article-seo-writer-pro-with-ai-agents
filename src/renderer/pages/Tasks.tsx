@@ -105,10 +105,10 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
   const [providerId, setProviderId] = useState('');
   const [model, setModel] = useState('');
   const [isCustomModel, setIsCustomModel] = useState<boolean>(false);
-  const [imageGeneration, setImageGeneration] = useState<number>(3);
+  const [imageGeneration, setImageGeneration] = useState<number>(100);
   const [imageStyle, setImageStyle] = useState('photorealistic');
   const [imageSize, setImageSize] = useState('1200x628');
-  const [imageModel, setImageModel] = useState('gpt-image-2');
+  const [imageModel, setImageModel] = useState('runware:101@1');
   const [insertInlineImages, setInsertInlineImages] = useState<boolean>(false);
   const [inlineImagesCount, setInlineImagesCount] = useState<number>(3);
   const [inlineImagesParagraphInterval, setInlineImagesParagraphInterval] = useState<number>(3);
@@ -293,10 +293,10 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
             }
           }
           
-          setImageGeneration(d.imageGeneration !== undefined ? d.imageGeneration : 3);
+          setImageGeneration(d.imageGeneration !== undefined ? d.imageGeneration : 100);
           setImageStyle(d.imageStyle || 'photorealistic');
           setImageSize(d.imageSize || '1200x628');
-          setImageModel(d.imageModel || 'gpt-image-2');
+          setImageModel(d.imageModel || 'runware:101@1');
           setArticleLength(d.articleLength || 'medium');
           setPublishingMode(d.publishingMode || 'publish');
           setPublishTargetWp(d.publishTargetWp !== undefined ? d.publishTargetWp : true);
@@ -375,9 +375,10 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
         setPromptTemplate(draft.promptTemplate || '');
         setProviderId(draft.providerId || '');
         setModel(draft.model || '');
-        setImageGeneration(draft.imageGeneration !== undefined ? draft.imageGeneration : 3);
+        setImageGeneration(draft.imageGeneration !== undefined ? draft.imageGeneration : 100);
         setImageStyle(draft.imageStyle || 'photorealistic');
         setImageSize(draft.imageSize || '1200x628');
+        setImageModel(draft.imageModel || 'runware:101@1');
         setArticleLength(draft.articleLength || 'medium');
         setPublishingMode(draft.publishingMode || 'draft');
         setPublishTargetWp(draft.publishTargetWp !== undefined ? draft.publishTargetWp : true);
@@ -406,7 +407,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       const draft = {
         name, websiteId, selectedCategories, keywords,
         promptTemplate, providerId, model, imageGeneration, imageStyle,
-        imageSize, articleLength, publishingMode, seoPlugin, isScheduled,
+        imageSize, imageModel, articleLength, publishingMode, seoPlugin, isScheduled,
         scheduleDate, scheduleTime, scheduleFrequency, step, editingTaskId,
         publishTargetWp, publishTargetGoogle, googleFolderId, googleSharingPermissions
       };
@@ -416,7 +417,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
   }, [
     openAdd, name, websiteId, selectedCategories, keywords,
     promptTemplate, providerId, model, imageGeneration, imageStyle,
-    imageSize, articleLength, publishingMode, seoPlugin, isScheduled,
+    imageSize, imageModel, articleLength, publishingMode, seoPlugin, isScheduled,
     scheduleDate, scheduleTime, scheduleFrequency, step, editingTaskId,
     publishTargetWp, publishTargetGoogle
   ]);
@@ -593,7 +594,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
         imageGeneration: task.image_generation || 0,
         imageStyle: task.image_style,
         imageSize: task.image_size,
-        imageModel: task.image_model || 'gpt-image-2',
+        imageModel: task.image_model || 'runware:101@1',
         articleLength: task.article_length,
         publishingMode: task.publishing_mode,
         seoSettings: JSON.parse(task.seo_settings || '{}'),
@@ -963,7 +964,7 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
       imageGeneration,
       imageStyle: finalStyleStr,
       imageSize: imageSize === 'custom' ? customImageSize : imageSize,
-      imageModel: imageModel || 'gpt-image-2',
+      imageModel: imageModel || 'runware:101@1',
       insertInlineImages: insertInlineImages ? 1 : 0,
       articleLength,
       publishingMode: publishingMode === 'future' ? 'future' : publishingMode,
@@ -1385,8 +1386,8 @@ const Tasks: React.FC<TasksProps> = ({ onNavigate }) => {
                   const val = parseInt(e.target.value, 10);
                   setImageGeneration(val);
                   if (val === 100 && (imageModel === 'gpt-image-2' || !imageModel)) {
-                    setImageModel('runware:100@1');
-                  } else if (val === 1 && (imageModel === 'runware:100@1' || !imageModel)) {
+                    setImageModel('runware:101@1');
+                  } else if (val === 1 && (imageModel === 'runware:101@1' || !imageModel)) {
                     setImageModel('gpt-image-2');
                   }
                 }}>
