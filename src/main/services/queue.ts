@@ -218,6 +218,14 @@ class QueueManager {
 
       // Start processing this job
       this.activeWorkers++;
+
+      const jobId = job.id;
+      const taskId = job.task_id;
+
+      // Mark job as running immediately in the database and notify UI to prevent race condition/duplicate runs
+      await dbRun(`UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE id = ?`, [jobId]);
+      this.notifyUI('job-status-changed', { jobId, taskId, status: 'running' });
+
       this.runJob(job).finally(() => {
         this.activeWorkers--;
         this.triggerQueue(); // Fetch next
@@ -235,12 +243,12 @@ class QueueManager {
            COUNT(*) as total,
            SUM(case when status = 'completed' then 1 else 0 end) as completed,
            SUM(case when status = 'failed' then 1 else 0 end) as failed,
-           SUM(case when status = 'waiting' then 1 else 0 end) as waiting
+           SUM(case when status = 'waiting' OR status = 'running' then 1 else 0 end) as active
          FROM jobs WHERE task_id = ?`,
         [taskId]
       );
 
-      if (stats && stats.waiting === 0) {
+      if (stats && stats.active === 0) {
         // Task is finished
         const finalStatus = stats.failed > 0 && stats.completed === 0 ? 'failed' : 'completed';
         await dbRun(`UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [finalStatus, taskId]);
@@ -465,9 +473,7 @@ class QueueManager {
   private async runJob(job: any): Promise<void> {
     const { id: jobId, task_id: taskId, keyword } = job;
     
-    // 1. Mark job as running
-    await dbRun(`UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE id = ?`, [jobId]);
-    this.notifyUI('job-status-changed', { jobId, taskId, status: 'running' });
+    // 1. Log job starting (status and UI notifications are already updated in processQueueLoop)
     await this.log(taskId, jobId, 'info', `Starting content pipeline for keyword: "${keyword}"`);
 
     try {
